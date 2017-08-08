@@ -1,0 +1,3 @@
+[submodule "OpenDSSDirect.py"]
+	path = OpenDSSDirect.py
+	url = https://github.com/NREL/OpenDSSDirect.py
