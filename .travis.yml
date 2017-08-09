@@ -1,8 +1,11 @@
 language: python
 python:
   - 3.6
-install: pip install numpy pandas scipy
-before_script: cd python
+install:
+  - pip install numpy pandas scipy
+before_script:
+  - cp data.tar.gz python
+  - cd python
+  - tar -xzf data.tar.gz
 script:
-  - ls .
   - python main.py
