@@ -24,13 +24,21 @@ class DataClass:
         if self._raw is None:
             return "No data available"
         else:
-            return "DataClass <length {}; size {}>".format(np.size(self._raw, axis=0), np.size(self._raw, axis=1))
+            return "DataClass({}, {})".format(np.size(self._raw, axis=0), np.size(self._raw, axis=1))
 
-    def power(self, t, g=()):
-        if len(g) == 0:
+    def power(self, t, g=np.array([])):
+        if np.size(g) == 0:
             g = np.arange(np.size(self._raw, axis=1))
         if np.max(g) >= np.size(self._raw, axis=1) or np.min(g) < 0:
             return None
         if t >= np.size(self._raw, axis=0) or t < 0:
             return None
         return self._raw[t, g]
+
+    @property
+    def max_t(self):
+        return np.size(self._raw, axis=0)
+
+    @property
+    def max_g(self):
+        return np.size(self._raw, axis=1)

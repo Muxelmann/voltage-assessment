@@ -1,10 +1,12 @@
 import _tools.opendssdirect as dss
+import numpy as np
 
 
 class DSSClass:
 
     _startup = False
     _load_count_original = 0
+    _load_count_added = 0
 
     @property
     def startup(self):
@@ -43,8 +45,46 @@ class DSSClass:
             did_start = 'failed'
         return 'DSSClass({})'.format(did_start)
 
-    def solve_circuit(self, quick=False):
-        NotImplemented()
+    def add_load(self, name, bus, phases):
+        if name in dss.Loads.AllNames():
+            raise NameError('Element Load.{} already exists'.format(name))
 
-    def load_power(self, p, q=None):
-        NotImplemented()
+        neutral = phases[-1]
+        for phase in phases[:-1]:
+            load_name = '{}_{}'.format(name, phase)
+            phase_name = '{}.{}'.format(phase, neutral)
+            dss.run_command('new Load.{} Phases=1 Bus={}.{} kV=0.24 kW=0 PF=1 Model=1'.format(load_name, bus, phase_name))
+            self._load_count_added += 1
+
+    def solve_circuit(self, quick=False):
+        dss.Solution.Solve()
+
+        if not quick and dss.Monitors.Count() > 0:
+            dss.Monitors.SampleAll()
+
+    @property
+    def load_count(self):
+        return dss.Loads.Count()
+
+    def load_power(self, p):
+        if np.size(p) == 1:
+            p = np.repeat(1, dss.Loads.Count())
+
+        if np.size(p) is not dss.Loads.Count():
+            raise IndexError('Power values do not match')
+
+        load_id = dss.Loads.First()
+        while load_id > 0:
+            dss.Loads.kW(p[load_id-1])
+            load_id = dss.Loads.Next()
+
+    def line_power(self, name):
+        line_id = dss.Circuit.SetActiveElement('Line.{}'.format(name))
+        if line_id < 0:
+            raise IndexError('Line.{} not found'.format(name))
+
+        return np.dot(np.reshape(np.array(dss.CktElement.Powers()), [-1, 2])[:3, :], np.array([1, 1j]))
+
+    def bus_voltages(self):
+        return np.reshape(np.dot(np.reshape(np.array(dss.Circuit.AllBusVolts()[6:]), [-1, 2]), np.array([1, 1j])), [-1, 3])
+
