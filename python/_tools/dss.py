@@ -83,8 +83,7 @@ class DSSClass:
         if line_id < 0:
             raise IndexError('Line.{} not found'.format(name))
 
-        return np.dot(np.reshape(np.array(dss.CktElement.Powers()), [-1, 2])[:3, :], np.array([1, 1j]))
+        return np.array(dss.CktElement.Powers()).reshape((-1, 2))[:3, :].dot(np.array([1, 1j]))
 
     def bus_voltages(self):
-        return np.reshape(np.dot(np.reshape(np.array(dss.Circuit.AllBusVolts()[6:]), [-1, 2]), np.array([1, 1j])), [-1, 3])
-
+        return np.array(dss.Circuit.AllBusVolts()[6:]).reshape((-1, 2)).dot(np.array((1, 1j))).reshape((-1, 3))

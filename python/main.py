@@ -21,10 +21,11 @@ for t in range(data.max_t):
     dss.load_power(data.power(t=t, g=np.arange(dss.load_count)))
     dss.solve_circuit()
 
+    t_voltages = np.expand_dims(np.abs(np.mean(dss.bus_voltages(), axis=0)), 0)
     if voltages is None:
-        voltages = dss.bus_voltages()
+        voltages = t_voltages
     else:
-        voltages = np.dstack((voltages, dss.bus_voltages()))
-    print('finished {:4d}'.format(t))
+        voltages = np.concatenate((voltages, t_voltages), axis=0)
+    print('finished {:4d} -> {}'.format(t, voltages[-1, :]))
 
 sio.savemat(output_path, {'voltages': voltages})
