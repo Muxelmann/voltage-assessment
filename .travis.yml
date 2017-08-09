@@ -3,4 +3,6 @@ python:
   - 3.6
 install: pip install numpy pandas scipy
 before_script: cd python
-script: main
+script:
+  - ls .
+  - python main.py
