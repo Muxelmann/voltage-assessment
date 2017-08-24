@@ -81,6 +81,9 @@ classdef DSSClass
                 load_shapes = load_shapes(:, randperm(size(load_shapes, 2)));
             end
             
+            self.dss_circuit.Meters.ResetAll
+            self.dss_circuit.Monitors.ResetAll
+            
             idx = self.dss_circuit.Loads.First;
             while idx > 0
                 load_name = self.dss_circuit.Loads.Name;
@@ -92,6 +95,10 @@ classdef DSSClass
             
             self.dss_circuit.Solution.Mode = 2;
             self.dss_circuit.Solution.Number = size(load_shapes, 1);
+        end
+        
+        function load_count = get_load_count(self)
+            load_count = self.dss_circuit.Loads.Count;
         end
         
         function solve(self)
