@@ -1,0 +1,12 @@
+close all
+clear
+
+dss_master_path = dir('LVTestCase/Master.dss');
+dss_data_dir 
+
+dss = DSSClass(fullfile(dss_master_path.folder, dss_master_path.name));
+dss.set_load_shape(rand(100, 55));
+dss.solve();
+
+data = dss.get_monitor_data();
+
