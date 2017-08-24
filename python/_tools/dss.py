@@ -1,5 +1,6 @@
 import _tools.opendssdirect as dss
 import numpy as np
+import pandas as pd
 
 
 class DSSClass:
@@ -7,6 +8,10 @@ class DSSClass:
     _startup = False
     _load_count_original = 0
     _load_count_added = 0
+
+    _load_shapes = []
+    _load_shape_interval = 0.5
+
 
     @property
     def startup(self):
@@ -38,6 +43,18 @@ class DSSClass:
         l_name = dss.CktElement.Name()
         dss.run_command('new EnergyMeter.mater1 Element={} Terminal=1'.format(l_name))
 
+        dss.Solution.Mode(1)
+        dss.Solution.Number(1440)
+        dss.Solution.StepSize(60)
+        dss.run_command('Set mode=daily number=1440 stepsize=60s')
+        print('SIM MODE: {} {}s #{}'.format(dss.Solution.Mode(), dss.Solution.StepSize(), dss.Solution.Number()))
+
+        for load_name in dss.utils.Iterator(dss.Loads, 'Name'):
+            dss.run_command(
+                'new Monitor.mon_{}_vi Element=Load.{} Terminal=1 Mode=0'.format(load_name(), load_name()))
+            dss.run_command(
+                'new Monitor.mon_{}_pq Element=Load.{} Terminal=1 Mode=1'.format(load_name(), load_name()))
+
     def __repr__(self):
         if self.startup:
             did_start = 'started'
@@ -53,14 +70,25 @@ class DSSClass:
         for phase in phases[:-1]:
             load_name = '{}_{}'.format(name, phase)
             phase_name = '{}.{}'.format(phase, neutral)
-            dss.run_command('new Load.{} Phases=1 Bus={}.{} kV=0.24 kW=0 PF=1 Model=1'.format(load_name, bus, phase_name))
+            dss.run_command(
+                'new Load.{} Phases=1 Bus={}.{} kV=0.24 kW=0 PF=1 Model=1'.format(load_name, bus, phase_name))
             self._load_count_added += 1
 
-    def solve_circuit(self, quick=False):
+    def solve_circuit(self):
         dss.Solution.Solve()
 
-        if not quick and dss.Monitors.Count() > 0:
-            dss.Monitors.SampleAll()
+        # if not quick and dss.Monitors.Count() > 0:
+        #     dss.Monitors.SampleAll()
+
+        print(dss.Monitors.Count())
+        dss.Monitors.First()
+        dss.Monitors.Next()
+
+        print(dss.__version__)
+        print(dss.Monitors.ByteStream())
+
+        # dss.Monitors.Show()
+        # print(dss.utils.monitors_to_dataframe(dss))
 
     @property
     def load_count(self):
@@ -68,15 +96,54 @@ class DSSClass:
 
     def load_power(self, p):
         if np.size(p) == 1:
-            p = np.repeat(1, dss.Loads.Count())
+            p = np.repeat(1, self.load_count)
 
-        if np.size(p) is not dss.Loads.Count():
+        if np.size(p) is not self.load_count:
             raise IndexError('Power values do not match')
 
         load_id = dss.Loads.First()
         while load_id > 0:
             dss.Loads.kW(p[load_id-1])
             load_id = dss.Loads.Next()
+
+    @property
+    def load_shapes(self):
+        return self._load_shapes
+
+    @load_shapes.setter
+    def load_shapes(self, load_shape_paths):
+        self._load_shapes = []
+        if not isinstance(load_shape_paths, list) or len(load_shape_paths) < self.load_count:
+            raise ValueError
+        load_shape_paths = load_shape_paths[0:self.load_count]
+
+        for load_shape_path in load_shape_paths:
+            load_shape_name = load_shape_path.split('/')[-1].split('.')[0]
+            # print('loading: {}'.format(load_shape_path))
+            load_shape_mult = pd.read_csv(load_shape_path, header=None).values.round(4).flatten().tolist()
+            load_shape_len = len(load_shape_mult)
+            dss.run_command(
+                'new LoadShape.{} Npts={} Interval={} Mult={} Pbase=0.0'.format(
+                    load_shape_name, load_shape_len, self._load_shape_interval, load_shape_mult))
+            self._load_shapes.append(load_shape_name)
+
+        # print(dss.LoadShape.Count())
+        # if dss.LoadShape.Count() > 0:
+        #     ls_id = dss.LoadShape.First()
+        #     while ls_id > 0:
+        #         print('{} ; {} ; {}'.format(
+        #             dss.LoadShape.Name(), dss.LoadShape.PBase(), dss.LoadShape.PMult()
+        #         ))
+        #         ls_id = dss.LoadShape.Next()
+
+        load_id = dss.Loads.First()
+        while load_id > 0:
+            dss.Loads.Duty(self._load_shapes[load_id-1])
+            load_id = dss.Loads.Next()
+
+    @load_shapes.deleter
+    def load_shapes(self):
+        del self._load_shapes
 
     def line_power(self, name):
         line_id = dss.Circuit.SetActiveElement('Line.{}'.format(name))
