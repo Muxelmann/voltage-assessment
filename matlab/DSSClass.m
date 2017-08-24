@@ -154,6 +154,19 @@ classdef DSSClass
                 
             end
         end
+        
+        function [load_distances, load_names] = get_load_distances(self)
+            load_names = self.dss_circuit.Loads.AllNames;
+            load_distances = nan(length(load_names), 1);
+            bus_names = self.dss_circuit.AllBusNames;
+            bus_distances = self.dss_circuit.AllBusDistances;
+            for i = 1:length(load_names)
+                self.dss_circuit.SetActiveElement(['Load.' load_names{i}]);
+                load_bus = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
+                [~, idx] = ismember(bus_names, load_bus{1});
+                load_distances(i) = bus_distances(idx == 1);
+            end
+        end
     end
     
 end

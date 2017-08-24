@@ -22,7 +22,7 @@ plot((1:1440)/60, total_load)
 
 %% Generate random loads that have the same power profile n times
 
-profile_reps = 1;
+profile_reps = 10;
 
 data_rand = rand(length(total_load), profile_reps, dss.get_load_count());
 data_scale = total_load ./ sum(data_rand, 3);
@@ -85,4 +85,26 @@ end
 
 %% Now do the voltage assessment
 
-voltages = cell2mat(arrayfun(@(x) x.data(:, 3), vi_rand_corrected, 'uni', 0));
+voltages = double(cell2mat(arrayfun(@(x) x.data(:, 3), vi_rand_corrected, 'uni', 0)));
+voltages = reshape(voltages, [], profile_reps, dss.get_load_count());
+
+boxplot(reshape(voltages, [], dss.get_load_count()));
+
+%% Get distance to node
+
+[load_distances, load_names] = dss.get_load_distances();
+plot(load_distances, squeeze(voltages(1, 1, :)), 'x');
+hold on
+arrayfun(@(x) text(load_distances(x), voltages(1, 1, x), load_names{x}), 1:length(load_names));
+hold off
+% return
+%% Display feeder
+
+idx = dss.dss_circuit.Loads.First;
+while idx > 0
+    bus_info = strsplit(dss.dss_circuit.ActiveElement.BusNames{1}, '.');
+    dss.dss_text.Command = ['AddBusMarker Bus=' bus_info{1} ' code=5 color=Red size=10'];
+    idx = dss.dss_circuit.Loads.Next;
+end
+
+dss.dss_text.Command = 'plot circuit';
