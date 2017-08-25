@@ -192,11 +192,13 @@ classdef DSSClass
             self.dss_circuit.Solution.SolveDirect();
         end
         
-        function [meter_names, meter_branches] = get_load_meters(self)
+        function [meter_names, meter_branches, end_busses, end_loads] = get_load_meters(self)
             % Identify all end points down stream from the available meters
             % that lie within the corresponding energy zone
             meter_names = {};
             meter_branches = {};
+            end_busses = {};
+            end_loads = {};
             idx = self.dss_circuit.Meters.First;
             while idx > 0
                 meter_names{end+1} = self.dss_circuit.Meters.Name;
@@ -207,10 +209,10 @@ classdef DSSClass
             
             % Remove all endpoints that do not have a load connected
             for i = 1:length(meter_branches)
-                end_busses = repmat({[]}, length(meter_branches{i}), 2);
+                end_busses{i} = repmat({[]}, length(meter_branches{i}), 2);
                 for j = 1:length(meter_branches{i})
                     self.dss_circuit.SetActiveElement(meter_branches{i}{j});
-                    end_busses(j, :) = self.dss_circuit.ActiveElement.BusNames;
+                    end_busses{i}(j, :) = self.dss_circuit.ActiveElement.BusNames;
                 end
                 
                 keep_idx = zeros(length(meter_branches{i}), 2);
@@ -219,17 +221,37 @@ classdef DSSClass
                     load_bus = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
                     load_bus = load_bus{1};
                     keep_idx = keep_idx + cell2mat(arrayfun(@(x) [...
-                        strcmp(end_busses(x, 1), load_bus).', ...
-                        strcmp(end_busses(x, 2), load_bus).'], ...
-                        1:size(end_busses, 1), 'uni', 0).');
+                        strcmp(end_busses{i}(x, 1), load_bus).', ...
+                        strcmp(end_busses{i}(x, 2), load_bus).'], ...
+                        1:size(end_busses{i}, 1), 'uni', 0).');
                     idx = self.dss_circuit.Loads.Next;
                 end
-                keep_idx = sum(keep_idx, 2) > 0;
-                meter_branches{i}(keep_idx == 0) = [];
+                
+                assert(all(sum(keep_idx, 2) <= 1), ...
+                    'DSSClass:get_load_meters', ...
+                    'Too many loads for a single element.');
+                
+                end_busses{i}(keep_idx == 0) = [];
+                meter_branches{i}(sum(keep_idx, 2) == 0) = [];
             end
             
-            % TODO: Identify which load is connected at which endpoint
-            
+            % Identify which load is connected at which endpoint
+            for i = 1:length(meter_names)
+                
+                end_loads{end+1} = repmat({[]}, length(meter_branches{i}), 1);
+                
+                idx = self.dss_circuit.Loads.First;
+                while idx > 0
+                    load_bus = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
+                    load_bus = load_bus{1};
+                    
+                    load_idx = strcmp(load_bus, end_busses{i});
+                    if sum(load_idx) > 0
+                        end_loads{i}{load_idx} = self.dss_circuit.Loads.Name;
+                    end
+                    idx = self.dss_circuit.Loads.Next;
+                end
+            end
         end
         
         function down_stream_customers(self, bus)
