@@ -67,6 +67,7 @@ classdef DSSClass
                 self.dss_circuit.Loads.Daily = ['shape_' load_name];
                 idx = self.dss_circuit.Loads.Next;
             end
+            self.dss_circuit.Solution.SolveDirect();
         end
         
         function set_load_shape(self, load_shapes, randomised)
@@ -166,6 +167,29 @@ classdef DSSClass
                 [~, idx] = ismember(bus_names, load_bus{1});
                 load_distances(i) = bus_distances(idx == 1);
             end
+        end
+        
+        function add_load_at_bus(self, load_name, bus)
+            
+            if any(cellfun(@(x) strcmp(x, 'esmu_1'), self.dss_circuit.Loads.AllNames))
+                command = 'edit';
+            else
+                command = 'new';
+            end
+            
+            self.dss_text.Command = [command ' Load.' load_name ' bus1=' bus ' Phases=1 kW=0.0'];
+            
+            bus_name = strsplit(bus, '.');
+            bus_name = bus_name(1);
+            idx = self.dss_circuit.Lines.First;
+            while idx > 0
+                if strcmp(self.dss_circuit.Lines.Bus1, bus_name)
+                    self.dss_text.Command = [command ' EnergyMeter.meter_' load_name ' Element=' self.dss_circuit.ActiveElement.Name ' Terminal=1'];
+                    break
+                end
+                idx = self.dss_circuit.Lines.Next;
+            end
+            self.dss_circuit.Solution.SolveDirect();
         end
     end
     
