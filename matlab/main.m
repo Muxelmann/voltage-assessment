@@ -93,11 +93,16 @@ boxplot(reshape(voltages, [], dss.get_load_count()));
 %% Get distance to node
 
 [load_distances, load_names] = dss.get_load_distances();
-plot(load_distances, squeeze(voltages(1, 1, :)), 'x');
-hold on
-arrayfun(@(x) text(load_distances(x), voltages(1, 1, x), load_names{x}), 1:length(load_names));
-hold off
-% return
+plot(load_distances);
+% plot(load_distances, squeeze(voltages(1, 1, :)), 'x');
+% hold on
+% arrayfun(@(x) text(load_distances(x), voltages(1, 1, x), load_names{x}), 1:length(load_names));
+% hold off
+
+
+
+%% Stop here
+return
 %% Display feeder
 
 idx = dss.dss_circuit.Loads.First;
