@@ -55,7 +55,7 @@ classdef DSSClass
                 'DSSClass:DSSClass:topLineMissing', ...
                 'Could not find first line.');
             line_name = self.dss_circuit.ActiveElement.Name;
-            self.dss_text.Command = ['new EnergyMeter.mater1 Element=' line_name ' Terminal=1'];
+            self.dss_text.Command = ['new EnergyMeter.main_meter Element=' line_name ' Terminal=1'];
             
             % Add monitors and empty loadshapes to loads
             idx = self.dss_circuit.Loads.First;
@@ -90,7 +90,7 @@ classdef DSSClass
                 load_name = self.dss_circuit.Loads.Name;
                 load_mult = load_shapes(:, idx);
                 self.dss_text.Command = ['new LoadShape.shape_' load_name ' Npts=' num2str(length(load_mult(:))) ' Mult=(' sprintf('%f,', load_mult(1:end-1)) sprintf('%f', load_mult(end)) ')'];
-%                 self.dss_circuit.Loads.Daily = ['shape_' load_name];
+                %                 self.dss_circuit.Loads.Daily = ['shape_' load_name];
                 idx = self.dss_circuit.Loads.Next;
             end
             
@@ -103,7 +103,7 @@ classdef DSSClass
         end
         
         function solve(self)
-            self.dss_circuit.Solution.Solve();
+            self.dss_circuit.Solution.Solve;
         end
         
         function [pq, vi] = get_monitor_data(self)
@@ -180,7 +180,7 @@ classdef DSSClass
             self.dss_text.Command = [command ' Load.' load_name ' bus1=' bus ' Phases=1 kW=0.0'];
             
             bus_name = strsplit(bus, '.');
-            bus_name = bus_name(1);
+            bus_name = bus_name{1};
             idx = self.dss_circuit.Lines.First;
             while idx > 0
                 if strcmp(self.dss_circuit.Lines.Bus1, bus_name)
@@ -190,6 +190,61 @@ classdef DSSClass
                 idx = self.dss_circuit.Lines.Next;
             end
             self.dss_circuit.Solution.SolveDirect();
+        end
+        
+        function [meter_names, meter_branches] = get_load_meters(self)
+            % Identify all end points down stream from the available meters
+            % that lie within the corresponding energy zone
+            meter_names = {};
+            meter_branches = {};
+            idx = self.dss_circuit.Meters.First;
+            while idx > 0
+                meter_names{end+1} = self.dss_circuit.Meters.Name;
+                % meter_branches{end+1} = self.dss_circuit.Meters.AllBranchesInZone;
+                meter_branches{end+1} = self.dss_circuit.Meters.AllEndElements;
+                idx = self.dss_circuit.Meters.Next;
+            end
+            
+            % Remove all endpoints that do not have a load connected
+            for i = 1:length(meter_branches)
+                end_busses = repmat({[]}, length(meter_branches{i}), 2);
+                for j = 1:length(meter_branches{i})
+                    self.dss_circuit.SetActiveElement(meter_branches{i}{j});
+                    end_busses(j, :) = self.dss_circuit.ActiveElement.BusNames;
+                end
+                
+                keep_idx = zeros(length(meter_branches{i}), 2);
+                idx = self.dss_circuit.Loads.First;
+                while idx > 0
+                    load_bus = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
+                    load_bus = load_bus{1};
+                    keep_idx = keep_idx + cell2mat(arrayfun(@(x) [...
+                        strcmp(end_busses(x, 1), load_bus).', ...
+                        strcmp(end_busses(x, 2), load_bus).'], ...
+                        1:size(end_busses, 1), 'uni', 0).');
+                    idx = self.dss_circuit.Loads.Next;
+                end
+                keep_idx = sum(keep_idx, 2) > 0;
+                meter_branches{i}(keep_idx == 0) = [];
+            end
+            
+            % TODO: Identify which load is connected at which endpoint
+            
+        end
+        
+        function down_stream_customers(self, bus)
+            bus_idx = self.dss_circuit.SetActiveBus(bus);
+            idx = self.dss_circuit.Loads.First;
+            while idx > 0
+                bus_name = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
+                bus_name = bus_name{1};
+                if bus_idx <= self.dss_circuit.SetActiveBus(bus_name)
+                    self.dss_text.Command = ['AddBusMarker Bus=' bus_name ' code=5 color=Red size=10'];
+                end
+                idx = self.dss_circuit.Loads.Next;
+            end
+            
+            self.dss_text.Command = 'plot circuit';
         end
     end
     
