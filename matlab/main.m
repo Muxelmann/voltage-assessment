@@ -13,8 +13,27 @@ end
 dss = DSSClass(fullfile(dss_master_path.folder, dss_master_path.name));
 dss.set_load_shape(data);
 
-dss.add_load_at_bus('esmu', '122.1.2.3.0');
+dss.add_load_at_bus('esmu', '318');
 [meter_names, meter_branches, end_busses, end_loads, load_zones] = dss.get_load_meters()
+
+
+%% Display feeder
+
+idx = dss.dss_circuit.Loads.First;
+while idx > 0
+    bus_info = strsplit(dss.dss_circuit.ActiveElement.BusNames{1}, '.');
+    color = 'Red';
+    if load_zones(idx) == 1
+        color = 'Red';
+    else
+        color = 'Green';
+    end
+    dss.dss_text.Command = ['AddBusMarker Bus=' bus_info{1} ' code=5 color=' color ' size=10'];
+    idx = dss.dss_circuit.Loads.Next;
+end
+
+dss.dss_text.Command = 'plot circuit';
+return
 
 %% Loads order
 
@@ -134,19 +153,3 @@ plot(load_distances);
 
 %% Stop here
 return
-%% Display feeder
-
-idx = dss.dss_circuit.Loads.First;
-while idx > 0
-    bus_info = strsplit(dss.dss_circuit.ActiveElement.BusNames{1}, '.');
-    color = 'Red';
-    if load_zones(idx) == 1
-        color = 'Red';
-    else
-        color = 'Green';
-    end
-    dss.dss_text.Command = ['AddBusMarker Bus=' bus_info{1} ' code=5 color=' color ' size=10'];
-    idx = dss.dss_circuit.Loads.Next;
-end
-
-dss.dss_text.Command = 'plot circuit';

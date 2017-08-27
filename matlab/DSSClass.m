@@ -55,7 +55,7 @@ classdef DSSClass
                 'DSSClass:DSSClass:topLineMissing', ...
                 'Could not find first line.');
             line_name = self.dss_circuit.ActiveElement.Name;
-            self.dss_text.Command = ['new EnergyMeter.main_meter Element=' line_name ' Terminal=1'];
+            self.dss_text.Command = ['new EnergyMeter.meter_main Element=' line_name ' Terminal=1'];
             
             % Add monitors and empty loadshapes to loads
             idx = self.dss_circuit.Loads.First;
@@ -169,7 +169,13 @@ classdef DSSClass
             end
         end
         
-        function add_load_at_bus(self, load_name, bus)
+        function add_load_at_bus(self, load_name, bus, explicit_neutral)
+            
+            if exist('explicit_neutral', 'var') == 0
+                neutral = '0';
+            elseif explicit_neutral
+                neutral = '4';
+            end
             
             if any(cellfun(@(x) strcmp(x, 'esmu_1'), self.dss_circuit.Loads.AllNames))
                 command = 'edit';
@@ -177,14 +183,18 @@ classdef DSSClass
                 command = 'new';
             end
             
-            self.dss_text.Command = [command ' Load.' load_name ' bus1=' bus ' Phases=1 kW=0.0'];
+            for p = 1:3
+                phasing = ['.' num2str(p) '.' num2str(neutral)];
+                new_load = [load_name '_' num2str(p)];
+                cmd = [command ' Load.' new_load ' bus1=' bus phasing ' Phases=1 kW=0.0'];
+                self.dss_text.Command = cmd;
+            end
             
-            bus_name = strsplit(bus, '.');
-            bus_name = bus_name{1};
             idx = self.dss_circuit.Lines.First;
             while idx > 0
-                if strcmp(self.dss_circuit.Lines.Bus1, bus_name)
-                    self.dss_text.Command = [command ' EnergyMeter.meter_' load_name ' Element=' self.dss_circuit.ActiveElement.Name ' Terminal=1'];
+                if strcmp(self.dss_circuit.Lines.Bus1, bus)
+                    cmd = [command ' EnergyMeter.meter_' load_name ' Element=' self.dss_circuit.ActiveElement.Name ' Terminal=1'];
+                    self.dss_text.Command = cmd;
                     break
                 end
                 idx = self.dss_circuit.Lines.Next;
@@ -205,8 +215,8 @@ classdef DSSClass
             idx = self.dss_circuit.Meters.First;
             while idx > 0
                 meter_names{end+1} = self.dss_circuit.Meters.Name;
-                % meter_branches{end+1} = self.dss_circuit.Meters.AllBranchesInZone;
-                meter_branches{end+1} = self.dss_circuit.Meters.AllEndElements;
+                meter_branches{end+1} = self.dss_circuit.Meters.AllBranchesInZone;
+                % meter_branches{end+1} = self.dss_circuit.Meters.AllEndElements;
                 idx = self.dss_circuit.Meters.Next;
             end
             
@@ -230,9 +240,12 @@ classdef DSSClass
                     idx = self.dss_circuit.Loads.Next;
                 end
                 
+                % FIXME: Only consider unique busses for load connectvity!
+                
+                keep_idx(keep_idx > 0) = true;
                 assert(all(sum(keep_idx, 2) <= 1), ...
                     'DSSClass:get_load_meters', ...
-                    'Too many loads for a single element.');
+                    'Too many loads for a PD element.');
                 
                 end_busses{i}(keep_idx == 0) = [];
                 meter_branches{i}(sum(keep_idx, 2) == 0) = [];
