@@ -192,13 +192,16 @@ classdef DSSClass
             self.dss_circuit.Solution.SolveDirect();
         end
         
-        function [meter_names, meter_branches, end_busses, end_loads] = get_load_meters(self)
+        function [meter_names, meter_branches, end_busses, end_loads, load_zones] = ...
+                get_load_meters(self)
             % Identify all end points down stream from the available meters
             % that lie within the corresponding energy zone
             meter_names = {};
             meter_branches = {};
             end_busses = {};
             end_loads = {};
+            load_zones = nan(self.dss_circuit.Loads.Count, 1);
+            
             idx = self.dss_circuit.Meters.First;
             while idx > 0
                 meter_names{end+1} = self.dss_circuit.Meters.Name;
@@ -233,12 +236,10 @@ classdef DSSClass
                 
                 end_busses{i}(keep_idx == 0) = [];
                 meter_branches{i}(sum(keep_idx, 2) == 0) = [];
-            end
             
-            % Identify which load is connected at which endpoint
-            for i = 1:length(meter_names)
+                % Identify which load is connected at which endpoint
                 
-                end_loads{end+1} = repmat({[]}, length(meter_branches{i}), 1);
+                end_loads{i} = repmat({[]}, length(meter_branches{i}), 1);
                 
                 idx = self.dss_circuit.Loads.First;
                 while idx > 0
@@ -248,6 +249,7 @@ classdef DSSClass
                     load_idx = strcmp(load_bus, end_busses{i});
                     if sum(load_idx) > 0
                         end_loads{i}{load_idx} = self.dss_circuit.Loads.Name;
+                        load_zones(idx) = i;
                     end
                     idx = self.dss_circuit.Loads.Next;
                 end

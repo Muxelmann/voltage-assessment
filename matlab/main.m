@@ -12,13 +12,44 @@ end
 
 dss = DSSClass(fullfile(dss_master_path.folder, dss_master_path.name));
 dss.set_load_shape(data);
+
+dss.add_load_at_bus('esmu', '122.1.2.3.0');
+[meter_names, meter_branches, end_busses, end_loads, load_zones] = dss.get_load_meters()
+
+%% Loads order
+
+load_names = {};
+idx = dss.dss_circuit.Loads.First;
+while idx > 0
+    load_names{end+1} = dss.dss_circuit.Loads.Name;
+    idx = dss.dss_circuit.Loads.Next;
+end
+
+%%
+dss.down_stream_customers('666');
+
+%%
 dss.solve();
 
 [pq, vi] = dss.get_monitor_data();
 
-total_load = cell2mat(arrayfun(@(x) abs(pq(x).data(:,3:4) * [1; 1j]), 1:length(pq), 'uni', 0));
+total_load = double(cell2mat(arrayfun(@(x) abs(x.data(:,3:4) * [1; 1j]), pq, 'uni', 0)));
 total_load = sum(total_load, 2);
+
+voltages = double(cell2mat(arrayfun(@(x) x.data(:, 3), vi, 'uni', 0)));
+
+
+figure(1);
+yyaxis left
 plot((1:1440)/60, total_load)
+
+yyaxis right
+plot((1:1440)/60, mean(voltages, 2));
+hold on
+plot((1:1440)/60, max(voltages, [], 2));
+plot((1:1440)/60, min(voltages, [], 2));
+hold off
+
 
 %% Generate random loads that have the same power profile n times
 
@@ -108,7 +139,13 @@ return
 idx = dss.dss_circuit.Loads.First;
 while idx > 0
     bus_info = strsplit(dss.dss_circuit.ActiveElement.BusNames{1}, '.');
-    dss.dss_text.Command = ['AddBusMarker Bus=' bus_info{1} ' code=5 color=Red size=10'];
+    color = 'Red';
+    if load_zones(idx) == 1
+        color = 'Red';
+    else
+        color = 'Green';
+    end
+    dss.dss_text.Command = ['AddBusMarker Bus=' bus_info{1} ' code=5 color=' color ' size=10'];
     idx = dss.dss_circuit.Loads.Next;
 end
 
