@@ -22,11 +22,11 @@ print(dss)
 # data = DataClass(data_path)
 # print(data)
 
-dss.load_shapes = [os.path.join(data_path, f_name) for f_name in os.listdir(data_path)]
-print(dss.load_shapes)
-voltages = None
-
-dss.solve_circuit()
+# dss.load_shapes = [os.path.join(data_path, f_name) for f_name in os.listdir(data_path)]
+# print(dss.load_shapes)
+# voltages = None
+#
+# dss.solve_circuit()
 
 # for t in range(data.max_t):
 #     dss.load_power(data.power(t=t, g=np.arange(dss.load_count)))
