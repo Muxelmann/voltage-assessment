@@ -45,9 +45,9 @@ class DSSClass:
         while idx > 0:
             load_name = dss.Loads.Name()
             dss.run_command(
-                'new Monitor.mon_{}_vi Element=Load.{} Terminal=1 Mode=0'.format(load_name, load_name))
+                'new Monitor.mon_{}_vi Element=Load.{} Terminal=1 Mode=0 VIpolar=yes'.format(load_name, load_name))
             dss.run_command(
-                'new Monitor.mon_{}_pq Element=Load.{} Terminal=1 Mode=1'.format(load_name, load_name))
+                'new Monitor.mon_{}_pq Element=Load.{} Terminal=1 Mode=1 Ppolar=no'.format(load_name, load_name))
             dss.run_command('new LoadShape.shape_{} Npts=0 Mult=()'.format(load_name))
             dss.Loads.Daily('shape_{}'.format(load_name))
             idx = dss.Loads.Next()
