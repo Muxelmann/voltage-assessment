@@ -87,3 +87,17 @@ class DSSClass:
 
     def solve(self):
         dss.Solution.Solve()
+
+    def get_monitor_data(self):
+        idx = dss.Monitors.First()
+        pq = []
+        vi = []
+        while idx > 0:
+            byte_stream = dss.Monitors.ByteStream()
+            if '_pq' in dss.Monitors.Name():
+                pq.append(byte_stream)
+            else:
+                vi.append(byte_stream)
+            idx = dss.Monitors.Next()
+
+        return pq, vi
