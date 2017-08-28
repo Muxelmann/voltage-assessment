@@ -1,16 +1,18 @@
 import os
-import numpy as np
-import scipy.io as sio
-from _tools import DataClass
+from _tools import load_data
 from _tools import DSSClass
 
 pwd = os.path.dirname(os.path.realpath(__file__))
 master_path = os.path.abspath(os.path.join(pwd, './LVTestCase/Master.dss'))
 data_path = os.path.abspath(os.path.join(pwd, './Daily_1min_100profiles'))
-output_path = os.path.abspath(os.path.join(pwd, './output.mat'))
+data = load_data(data_path)
+
 
 dss = DSSClass(master_path)
+dss.set_load_shapes(data, True)
 print(dss)
+
+dss.solve()
 
 # dir_content = os.listdir(path)
 #         self._iter_paths = []

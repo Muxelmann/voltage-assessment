@@ -1,6 +1,5 @@
 import _tools.opendssdirect as dss
 import numpy as np
-import pandas as pd
 
 
 class DSSClass:
@@ -61,3 +60,30 @@ class DSSClass:
         else:
             did_start = 'failed'
         return 'DSSClass({})'.format(did_start)
+
+    def set_load_shapes(self, load_shapes, randomised=False):
+        if np.size(load_shapes, 1) < dss.Loads.Count():
+            return
+
+        if randomised:
+            load_shapes = load_shapes[:, np.random.permutation(np.size(load_shapes, 1))]
+
+        dss.Meters.ResetAll()
+        dss.Monitors.ResetAll()
+
+        idx = dss.Loads.First()
+        while idx > 0:
+            load_name = dss.Loads.Name()
+            load_mult = load_shapes[:, idx-1]
+            cmd = 'edit LoadShape.shape_{} Npts={} Mult={}'.format(load_name, load_mult.size, load_mult.tolist())
+            dss.run_command(cmd)
+            idx = dss.Loads.Next()
+
+        dss.Solution.Mode(2)
+        dss.Solution.Number(np.size(load_shapes, 0))
+
+    def load_count(self):
+        return dss.Loads.Count()
+
+    def solve(self):
+        dss.Solution.Solve()
