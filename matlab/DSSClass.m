@@ -172,7 +172,7 @@ classdef DSSClass < handle
             for i = 1:length(meter_names)
                 self.dss_circuit.SetActiveElement(['EnergyMeter.' meter_names{i}]);
                 bus_name = self.dss_circuit.ActiveElement.BusNames{1};
-                bus_idx = find(cellfun(@(x) strcmp(x, bus_name), self.dss_circuit.AllBusNames));
+                bus_idx = cellfun(@(x) strcmp(x, bus_name), self.dss_circuit.AllBusNames);
                 meter_distance(i) = self.original_bus_distances(bus_idx);
             end
 
