@@ -13,19 +13,18 @@ end
 dss = DSSClass(fullfile(dss_master_path.folder, dss_master_path.name));
 dss.set_load_shape(data);
 
-dss.put_esmu_at_bus('318');
-[load_zones] = dss.get_load_meters();
-
-
-%% Display feeder
+%% Add ESMU
+% dss.put_esmu_at_bus('318');
+% [load_zones] = dss.get_load_meters();
+% 
 % dss.down_stream_customers();
-
-%%
-[load_distances, load_names] = dss.get_load_distances();
-plot(load_distances, 'x');
-hold on
-arrayfun(@(x) text(x, load_distances(x), load_names{x}), 1:length(load_distances));
-hold off
+% 
+%
+% [load_distances, load_names] = dss.get_load_distances();
+% plot(load_distances, 'x');
+% hold on
+% arrayfun(@(x) text(x, load_distances(x), load_names{x}), 1:length(load_distances));
+% hold off
 
 %%
 dss.solve();
@@ -49,11 +48,9 @@ plot((1:1440)/60, max(voltages, [], 2));
 plot((1:1440)/60, min(voltages, [], 2));
 hold off
 
-return
-
 %% Generate random loads that have the same power profile n times
 
-profile_reps = 10;
+profile_reps = 2;
 
 data_rand = rand(length(total_load), profile_reps, dss.get_load_count());
 data_scale = total_load ./ sum(data_rand, 3);
