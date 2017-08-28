@@ -13,26 +13,19 @@ end
 dss = DSSClass(fullfile(dss_master_path.folder, dss_master_path.name));
 dss.set_load_shape(data);
 
-dss.add_load_at_bus('esmu', '318');
-[meter_names, meter_branches, end_busses, end_loads, load_zones] = dss.get_load_meters()
+dss.put_esmu_at_bus('318');
+[load_zones] = dss.get_load_meters();
 
 
 %% Display feeder
+% dss.down_stream_customers();
 
-idx = dss.dss_circuit.Loads.First;
-while idx > 0
-    bus_info = strsplit(dss.dss_circuit.ActiveElement.BusNames{1}, '.');
-    color = 'Red';
-    if load_zones(idx) == 1
-        color = 'Red';
-    else
-        color = 'Green';
-    end
-    dss.dss_text.Command = ['AddBusMarker Bus=' bus_info{1} ' code=5 color=' color ' size=10'];
-    idx = dss.dss_circuit.Loads.Next;
-end
-
-dss.dss_text.Command = 'plot circuit';
+%%
+[load_distances, load_names] = dss.get_load_distances();
+plot(load_distances, 'x');
+hold on
+arrayfun(@(x) text(x, load_distances(x), load_names{x}), 1:length(load_distances));
+hold off
 return
 
 %% Loads order

@@ -1,4 +1,4 @@
-classdef DSSClass
+classdef DSSClass < handle
     %DSSCLASS Simple class to interface with OpenDSS
     
     properties (Transient=true)
@@ -7,6 +7,8 @@ classdef DSSClass
         dss_circuit = []
         
         load_shapes = []
+        
+        esmu_meter_distance = []
     end
     
     methods
@@ -157,19 +159,27 @@ classdef DSSClass
         end
         
         function [load_distances, load_names] = get_load_distances(self)
-            load_names = self.dss_circuit.Loads.AllNames;
+            % Identify to which meter the distance is measured
+            [load_zones, load_names] =  self.get_load_meters();
             load_distances = nan(length(load_names), 1);
-            bus_names = self.dss_circuit.AllBusNames;
+            
+            % Get all distances and names from  busses
             bus_distances = self.dss_circuit.AllBusDistances;
+            bus_names = self.dss_circuit.AllBusNames;
+            
+            % Filter for loads only
             for i = 1:length(load_names)
                 self.dss_circuit.SetActiveElement(['Load.' load_names{i}]);
                 load_bus = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
                 [~, idx] = ismember(bus_names, load_bus{1});
                 load_distances(i) = bus_distances(idx == 1);
+                if load_zones(i) > 1
+                    load_distances(i) = load_distances(i) + self.esmu_meter_distance;
+                end
             end
         end
         
-        function add_load_at_bus(self, load_name, bus, explicit_neutral)
+        function put_esmu_at_bus(self, bus, explicit_neutral)
             
             if exist('explicit_neutral', 'var') == 0
                 neutral = '0';
@@ -177,24 +187,31 @@ classdef DSSClass
                 neutral = '4';
             end
             
-            if any(cellfun(@(x) strcmp(x, 'esmu_1'), self.dss_circuit.Loads.AllNames))
+            load_name = 'esmu';
+            
+            for p = 1:3
+                new_load = [load_name '_' num2str(p)];
+                if any(cellfun(@(x) strcmp(x, new_load), self.dss_circuit.Loads.AllNames))
+                    command = 'edit';
+                else
+                    command = 'new';
+                end
+                phasing = ['.' num2str(p) '.' num2str(neutral)];
+                self.dss_text.Command = [command ' Load.' new_load ' bus1=' bus phasing ' Phases=1 kW=0.0'];
+            end
+            self.dss_text.Command = ['AddBusMarker Bus=' bus ' code=12 color=Blue size=1'];
+            
+            idx = self.dss_circuit.Lines.First;
+            if any(cellfun(@(x) strcmp(x, new_load), self.dss_circuit.Monitors.AllNames))
                 command = 'edit';
             else
                 command = 'new';
             end
-            
-            for p = 1:3
-                phasing = ['.' num2str(p) '.' num2str(neutral)];
-                new_load = [load_name '_' num2str(p)];
-                cmd = [command ' Load.' new_load ' bus1=' bus phasing ' Phases=1 kW=0.0'];
-                self.dss_text.Command = cmd;
-            end
-            
-            idx = self.dss_circuit.Lines.First;
             while idx > 0
                 if strcmp(self.dss_circuit.Lines.Bus1, bus)
-                    cmd = [command ' EnergyMeter.meter_' load_name ' Element=' self.dss_circuit.ActiveElement.Name ' Terminal=1'];
-                    self.dss_text.Command = cmd;
+                    self.dss_circuit.SetActiveBus(bus)
+                    self.esmu_meter_distance = self.dss_circuit.ActiveBus.Distance;
+                    self.dss_text.Command = [command ' EnergyMeter.meter_' load_name ' Element=' self.dss_circuit.ActiveElement.Name ' Terminal=1'];
                     break
                 end
                 idx = self.dss_circuit.Lines.Next;
@@ -202,66 +219,46 @@ classdef DSSClass
             self.dss_circuit.Solution.SolveDirect();
         end
         
-        function [meter_names, meter_branches, end_busses, end_loads, load_zones] = ...
-                get_load_meters(self)
+        function [load_zones, load_names, meter_names] =  get_load_meters(self)
             % Identify all end points down stream from the available meters
             % that lie within the corresponding energy zone
-            meter_names = {};
-            meter_branches = {};
-            end_busses = {};
-            end_loads = {};
-            load_zones = nan(self.dss_circuit.Loads.Count, 1);
+            
+            % Find all branches that belong to the relevant meter
+            meter_names = repmat({[]}, self.dss_circuit.Meters.Count, 1);
+            all_branches = repmat({[]}, self.dss_circuit.Meters.Count, 1);
             
             idx = self.dss_circuit.Meters.First;
             while idx > 0
-                meter_names{end+1} = self.dss_circuit.Meters.Name;
-                meter_branches{end+1} = self.dss_circuit.Meters.AllBranchesInZone;
-                % meter_branches{end+1} = self.dss_circuit.Meters.AllEndElements;
+                meter_names{idx} = self.dss_circuit.Meters.Name;
+                all_branches{idx} = self.dss_circuit.Meters.AllBranchesInZone;
+                % meter_branches{idx} = self.dss_circuit.Meters.AllEndElements;
                 idx = self.dss_circuit.Meters.Next;
             end
             
-            % Remove all endpoints that do not have a load connected
-            for i = 1:length(meter_branches)
-                end_busses{i} = repmat({[]}, length(meter_branches{i}), 2);
-                for j = 1:length(meter_branches{i})
-                    self.dss_circuit.SetActiveElement(meter_branches{i}{j});
-                    end_busses{i}(j, :) = self.dss_circuit.ActiveElement.BusNames;
-                end
-                
-                keep_idx = zeros(length(meter_branches{i}), 2);
-                idx = self.dss_circuit.Loads.First;
-                while idx > 0
-                    load_bus = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
-                    load_bus = load_bus{1};
-                    keep_idx = keep_idx + cell2mat(arrayfun(@(x) [...
-                        strcmp(end_busses{i}(x, 1), load_bus).', ...
-                        strcmp(end_busses{i}(x, 2), load_bus).'], ...
-                        1:size(end_busses{i}, 1), 'uni', 0).');
-                    idx = self.dss_circuit.Loads.Next;
-                end
-                
-                % FIXME: Only consider unique busses for load connectvity!
-                
-                keep_idx(keep_idx > 0) = true;
-                assert(all(sum(keep_idx, 2) <= 1), ...
-                    'DSSClass:get_load_meters', ...
-                    'Too many loads for a PD element.');
-                
-                end_busses{i}(keep_idx == 0) = [];
-                meter_branches{i}(sum(keep_idx, 2) == 0) = [];
+            % Identify the load's zones (1, 2, 3 etc) according to meter
+            load_zones = nan(self.dss_circuit.Loads.Count, 1);
+            load_names = self.dss_circuit.Loads.AllNames;
             
-                % Identify which load is connected at which endpoint
+            for i = 1:length(all_branches)
+                % Find all end busses of the metered branches
+                end_busses = repmat({[]}, length(all_branches{i}), 2);
+                for j = 1:length(all_branches{i})
+                    self.dss_circuit.SetActiveElement(all_branches{i}{j});
+                    end_busses(j, :) = self.dss_circuit.ActiveElement.BusNames;
+                end
+                % Remove all duplicates
+                end_busses = unique(end_busses(:));
                 
-                end_loads{i} = repmat({[]}, length(meter_branches{i}), 1);
-                
+                % For the corresponding load, determine if it is connected
+                % to a bus that belongs to the corresponding meter
                 idx = self.dss_circuit.Loads.First;
                 while idx > 0
                     load_bus = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
                     load_bus = load_bus{1};
-                    
-                    load_idx = strcmp(load_bus, end_busses{i});
-                    if sum(load_idx) > 0
-                        end_loads{i}{load_idx} = self.dss_circuit.Loads.Name;
+                    keep_idx = cell2mat(arrayfun(@(x) ...
+                        strcmp(end_busses(x), load_bus).', ...
+                        1:length(end_busses), 'uni', 0).');
+                    if any(keep_idx > 0)
                         load_zones(idx) = i;
                     end
                     idx = self.dss_circuit.Loads.Next;
@@ -269,15 +266,22 @@ classdef DSSClass
             end
         end
         
-        function down_stream_customers(self, bus)
-            bus_idx = self.dss_circuit.SetActiveBus(bus);
+        function down_stream_customers(self)
+            load_zones = get_load_meters(self);
+            
+            zone_colors = {...
+                'Green', 'Red', 'Yellow', 'Maroon', 'Olive', ...
+                'Navy', 'Purple', 'Teal', 'Gray', 'Silver', 'Lime', ...
+                'Fuchsia', 'Aqua', 'LtGray', 'DkGray'};
+            
             idx = self.dss_circuit.Loads.First;
             while idx > 0
-                bus_name = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
-                bus_name = bus_name{1};
-                if bus_idx <= self.dss_circuit.SetActiveBus(bus_name)
-                    self.dss_text.Command = ['AddBusMarker Bus=' bus_name ' code=5 color=Red size=10'];
-                end
+                bus_info = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
+                assert(load_zones(idx) <= length(zone_colors), ...
+                    'DSSCLass:down_stream_customers:too-many-meters', ...
+                    'Too many meters and not enough DSS colors.');
+                color = zone_colors{load_zones(idx)};
+                self.dss_text.Command = ['AddBusMarker Bus=' bus_info{1} ' code=5 color=' color ' size=10'];
                 idx = self.dss_circuit.Loads.Next;
             end
             
