@@ -8,7 +8,7 @@ classdef DSSClass < handle
         
         load_shapes = []
         
-        esmu_meter_distance = []
+        original_bus_distances = []
     end
     
     methods
@@ -70,6 +70,7 @@ classdef DSSClass < handle
                 idx = self.dss_circuit.Loads.Next;
             end
             self.dss_circuit.Solution.SolveDirect();
+            self.original_bus_distances = self.dss_circuit.AllBusDistances;
         end
         
         function set_load_shape(self, load_shapes, randomised)
@@ -92,7 +93,7 @@ classdef DSSClass < handle
                 load_name = self.dss_circuit.Loads.Name;
                 load_mult = load_shapes(:, idx);
                 self.dss_text.Command = ['new LoadShape.shape_' load_name ' Npts=' num2str(length(load_mult(:))) ' Mult=(' sprintf('%f,', load_mult(1:end-1)) sprintf('%f', load_mult(end)) ')'];
-                %                 self.dss_circuit.Loads.Daily = ['shape_' load_name];
+                % self.dss_circuit.Loads.Daily = ['shape_' load_name];
                 idx = self.dss_circuit.Loads.Next;
             end
             
@@ -160,12 +161,21 @@ classdef DSSClass < handle
         
         function [load_distances, load_names] = get_load_distances(self)
             % Identify to which meter the distance is measured
-            [load_zones, load_names] =  self.get_load_meters();
+            [load_zones, load_names, meter_names] =  self.get_load_meters();
             load_distances = nan(length(load_names), 1);
             
             % Get all distances and names from  busses
             bus_distances = self.dss_circuit.AllBusDistances;
             bus_names = self.dss_circuit.AllBusNames;
+            
+            % Find meter distances
+            meter_distance = nan(length(meter_names), 1);
+            for i = 1:length(meter_names)
+                self.dss_circuit.SetActiveElement(['EnergyMeter.' meter_names{i}]);
+                bus_name = self.dss_circuit.ActiveElement.BusNames{1};
+                bus_idx = find(cellfun(@(x) strcmp(x, bus_name), self.dss_circuit.AllBusNames));
+                meter_distance(i) = self.original_bus_distances(bus_idx);
+            end
             
             % Filter for loads only
             for i = 1:length(load_names)
@@ -174,7 +184,7 @@ classdef DSSClass < handle
                 [~, idx] = ismember(bus_names, load_bus{1});
                 load_distances(i) = bus_distances(idx == 1);
                 if load_zones(i) > 1
-                    load_distances(i) = load_distances(i) + self.esmu_meter_distance;
+                    load_distances(i) = load_distances(i) + meter_distance(load_zones(i));
                 end
             end
         end
@@ -210,7 +220,6 @@ classdef DSSClass < handle
             while idx > 0
                 if strcmp(self.dss_circuit.Lines.Bus1, bus)
                     self.dss_circuit.SetActiveBus(bus)
-                    self.esmu_meter_distance = self.dss_circuit.ActiveBus.Distance;
                     self.dss_text.Command = [command ' EnergyMeter.meter_' load_name ' Element=' self.dss_circuit.ActiveElement.Name ' Terminal=1'];
                     break
                 end
