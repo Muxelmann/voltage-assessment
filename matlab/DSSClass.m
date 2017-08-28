@@ -1,24 +1,24 @@
 classdef DSSClass < handle
     %DSSCLASS Simple class to interface with OpenDSS
-    
+
     properties (Transient=true)
         dss_text = []
         dss_object = []
         dss_circuit = []
-        
+
         load_shapes = []
-        
+
         original_bus_distances = []
     end
-    
+
     methods
         function self = DSSClass(master_path)
             %DSSCLASS Inidialises the DSSClass
             disp('> Initialising DSSClass');
-            
+
             dss_object = actxserver('OpenDSSEngine.DSS');
             dss_start = dss_object.Start(0);
-            
+
             if dss_start
                 disp(' > Initialisation successful');
             else
@@ -26,19 +26,19 @@ classdef DSSClass < handle
                     'DSSClass:DSSClass:initialisationFailed', ...
                     'OpenDSS could not be initialised');
             end
-            
+
             self.dss_object = dss_object;
             self.dss_text = dss_object.Text;
-            
+
             disp('> Loading Circuit');
             self.dss_text.Command = 'clear';
-            
+
             pwd_pre_compile = pwd;
             self.dss_text.Command = ['compile "', master_path, '"'];
             cd(pwd_pre_compile);
             self.dss_text.Command = 'set Maxiterations=100';
             self.dss_circuit = dss_object.ActiveCircuit;
-            
+
             % Disable all energy meters
             idx = self.dss_circuit.Meters.First;
             while idx > 0
@@ -51,14 +51,14 @@ classdef DSSClass < handle
                 self.dss_circuit.ActiveElement.Enabled = false;
                 idx = self.dss_circuit.Monitors.Next;
             end
-            
+
             % Add meter at top of feeder
             assert(self.dss_circuit.Lines.First > 0, ...
                 'DSSClass:DSSClass:topLineMissing', ...
                 'Could not find first line.');
             line_name = self.dss_circuit.ActiveElement.Name;
             self.dss_text.Command = ['new EnergyMeter.meter_main Element=' line_name ' Terminal=1'];
-            
+
             % Add monitors and empty loadshapes to loads
             idx = self.dss_circuit.Loads.First;
             while idx > 0
@@ -72,43 +72,42 @@ classdef DSSClass < handle
             self.dss_circuit.Solution.SolveDirect();
             self.original_bus_distances = self.dss_circuit.AllBusDistances;
         end
-        
+
         function set_load_shape(self, load_shapes, randomised)
             assert(size(load_shapes, 2) >= self.dss_circuit.Loads.Count, ...
                 'DSSClass:set_load_shape', ...
                 'Not enough load shapes for the amount of loads');
-            
+
             if exist('randomised', 'var') == 0
                 randomised = false;
             end
             if randomised
                 load_shapes = load_shapes(:, randperm(size(load_shapes, 2)));
             end
-            
-            self.dss_circuit.Meters.ResetAll
-            self.dss_circuit.Monitors.ResetAll
-            
+
+            self.dss_circuit.Meters.ResetAll;
+            self.dss_circuit.Monitors.ResetAll;
+
             idx = self.dss_circuit.Loads.First;
             while idx > 0
                 load_name = self.dss_circuit.Loads.Name;
                 load_mult = load_shapes(:, idx);
-                self.dss_text.Command = ['new LoadShape.shape_' load_name ' Npts=' num2str(length(load_mult(:))) ' Mult=(' sprintf('%f,', load_mult(1:end-1)) sprintf('%f', load_mult(end)) ')'];
-                % self.dss_circuit.Loads.Daily = ['shape_' load_name];
+                self.dss_text.Command = ['edit LoadShape.shape_' load_name ' Npts=' num2str(length(load_mult(:))) ' Mult=(' sprintf('%f,', load_mult(1:end-1)) sprintf('%f', load_mult(end)) ')'];
                 idx = self.dss_circuit.Loads.Next;
             end
-            
+
             self.dss_circuit.Solution.Mode = 2;
             self.dss_circuit.Solution.Number = size(load_shapes, 1);
         end
-        
+
         function load_count = get_load_count(self)
             load_count = self.dss_circuit.Loads.Count;
         end
-        
+
         function solve(self)
             self.dss_circuit.Solution.Solve;
         end
-        
+
         function [pq, vi] = get_monitor_data(self)
             idx = self.dss_circuit.Monitors.First;
             % Initialise the data_map structure
@@ -127,17 +126,17 @@ classdef DSSClass < handle
                 % Continue with next monitor
                 idx = self.dss_circuit.Monitors.Next;
             end
-            
+
             function monitor_data = decode_monitor(dss, byte_stream)
                 %DECODE_MONITOR Decodes the monitor's bytestream into a struct
-                
+
                 monitor_data = [];
-                
+
                 signature = typecast(byte_stream(1:4), 'int32');
                 assert(signature == 43756, ...
                     'DSSClass:save_monitor_data:decode_monitor:incorrectSignature', ...
                     'ByteStream did not contain expected signature');
-                
+
                 % Signature
                 monitor_data.signature = signature;
                 % Name
@@ -155,19 +154,19 @@ classdef DSSClass < handle
                 out = typecast(byte_stream(273:end), 'single');
                 out = reshape(out, monitor_data.size+2, [])';
                 monitor_data.data = out;
-                
+
             end
         end
-        
+
         function [load_distances, load_names] = get_load_distances(self)
             % Identify to which meter the distance is measured
             [load_zones, load_names, meter_names] =  self.get_load_meters();
             load_distances = nan(length(load_names), 1);
-            
+
             % Get all distances and names from  busses
             bus_distances = self.dss_circuit.AllBusDistances;
             bus_names = self.dss_circuit.AllBusNames;
-            
+
             % Find meter distances
             meter_distance = nan(length(meter_names), 1);
             for i = 1:length(meter_names)
@@ -176,7 +175,7 @@ classdef DSSClass < handle
                 bus_idx = find(cellfun(@(x) strcmp(x, bus_name), self.dss_circuit.AllBusNames));
                 meter_distance(i) = self.original_bus_distances(bus_idx);
             end
-            
+
             % Filter for loads only
             for i = 1:length(load_names)
                 self.dss_circuit.SetActiveElement(['Load.' load_names{i}]);
@@ -188,17 +187,17 @@ classdef DSSClass < handle
                 end
             end
         end
-        
+
         function put_esmu_at_bus(self, bus, explicit_neutral)
-            
+
             if exist('explicit_neutral', 'var') == 0
                 neutral = '0';
             elseif explicit_neutral
                 neutral = '4';
             end
-            
+
             load_name = 'esmu';
-            
+
             for p = 1:3
                 new_load = [load_name '_' num2str(p)];
                 if any(cellfun(@(x) strcmp(x, new_load), self.dss_circuit.Loads.AllNames))
@@ -210,7 +209,7 @@ classdef DSSClass < handle
                 self.dss_text.Command = [command ' Load.' new_load ' bus1=' bus phasing ' Phases=1 kW=0.0'];
             end
             self.dss_text.Command = ['AddBusMarker Bus=' bus ' code=12 color=Blue size=1'];
-            
+
             idx = self.dss_circuit.Lines.First;
             if any(cellfun(@(x) strcmp(x, new_load), self.dss_circuit.Monitors.AllNames))
                 command = 'edit';
@@ -227,15 +226,15 @@ classdef DSSClass < handle
             end
             self.dss_circuit.Solution.SolveDirect();
         end
-        
+
         function [load_zones, load_names, meter_names] =  get_load_meters(self)
             % Identify all end points down stream from the available meters
             % that lie within the corresponding energy zone
-            
+
             % Find all branches that belong to the relevant meter
             meter_names = repmat({[]}, self.dss_circuit.Meters.Count, 1);
             all_branches = repmat({[]}, self.dss_circuit.Meters.Count, 1);
-            
+
             idx = self.dss_circuit.Meters.First;
             while idx > 0
                 meter_names{idx} = self.dss_circuit.Meters.Name;
@@ -243,11 +242,11 @@ classdef DSSClass < handle
                 % meter_branches{idx} = self.dss_circuit.Meters.AllEndElements;
                 idx = self.dss_circuit.Meters.Next;
             end
-            
+
             % Identify the load's zones (1, 2, 3 etc) according to meter
             load_zones = nan(self.dss_circuit.Loads.Count, 1);
             load_names = self.dss_circuit.Loads.AllNames;
-            
+
             for i = 1:length(all_branches)
                 % Find all end busses of the metered branches
                 end_busses = repmat({[]}, length(all_branches{i}), 2);
@@ -257,7 +256,7 @@ classdef DSSClass < handle
                 end
                 % Remove all duplicates
                 end_busses = unique(end_busses(:));
-                
+
                 % For the corresponding load, determine if it is connected
                 % to a bus that belongs to the corresponding meter
                 idx = self.dss_circuit.Loads.First;
@@ -274,15 +273,15 @@ classdef DSSClass < handle
                 end
             end
         end
-        
+
         function down_stream_customers(self)
             load_zones = get_load_meters(self);
-            
+
             zone_colors = {...
                 'Green', 'Red', 'Yellow', 'Maroon', 'Olive', ...
                 'Navy', 'Purple', 'Teal', 'Gray', 'Silver', 'Lime', ...
                 'Fuchsia', 'Aqua', 'LtGray', 'DkGray'};
-            
+
             idx = self.dss_circuit.Loads.First;
             while idx > 0
                 bus_info = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
@@ -293,10 +292,9 @@ classdef DSSClass < handle
                 self.dss_text.Command = ['AddBusMarker Bus=' bus_info{1} ' code=5 color=' color ' size=10'];
                 idx = self.dss_circuit.Loads.Next;
             end
-            
+
             self.dss_text.Command = 'plot circuit';
         end
     end
-    
-end
 
+end

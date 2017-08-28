@@ -26,19 +26,6 @@ plot(load_distances, 'x');
 hold on
 arrayfun(@(x) text(x, load_distances(x), load_names{x}), 1:length(load_distances));
 hold off
-return
-
-%% Loads order
-
-load_names = {};
-idx = dss.dss_circuit.Loads.First;
-while idx > 0
-    load_names{end+1} = dss.dss_circuit.Loads.Name;
-    idx = dss.dss_circuit.Loads.Next;
-end
-
-%%
-dss.down_stream_customers('666');
 
 %%
 dss.solve();
@@ -62,6 +49,7 @@ plot((1:1440)/60, max(voltages, [], 2));
 plot((1:1440)/60, min(voltages, [], 2));
 hold off
 
+return
 
 %% Generate random loads that have the same power profile n times
 
