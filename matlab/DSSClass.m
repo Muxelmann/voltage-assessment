@@ -2,6 +2,8 @@ classdef DSSClass < handle
     %DSSCLASS Simple class to interface with OpenDSS
 
     properties (Transient=true)
+        debug_enabled = nan
+        
         dss_text = []
         dss_object = []
         dss_circuit = []
@@ -12,25 +14,36 @@ classdef DSSClass < handle
     end
 
     methods
-        function self = DSSClass(master_path)
+        function self = DSSClass(master_path, debug_enabled)
             %DSSCLASS Inidialises the DSSClass
-            disp('> Initialising DSSClass');
+            if exist('debug_enabled', 'var') == 0
+                debug_enabled = false;
+            end
+            
+            if debug_enabled == 1
+                self.debug_enabled = true;
+            else
+                self.debug_enabled = false;
+            end
+            
+            self.disp('> Initialising DSSClass');
 
             dss_object = actxserver('OpenDSSEngine.DSS');
             dss_start = dss_object.Start(0);
 
             if dss_start
-                disp(' > Initialisation successful');
+                self.disp('> Initialisation successful');
             else
                 assert(dss_start, ...
                     'DSSClass:DSSClass:initialisationFailed', ...
                     'OpenDSS could not be initialised');
             end
-
+            
+            self.dss_object.AllowForms = self.debug_enabled;
             self.dss_object = dss_object;
             self.dss_text = dss_object.Text;
 
-            disp('> Loading Circuit');
+            self.disp('> Loading Circuit');
             self.dss_text.Command = 'clear';
 
             pwd_pre_compile = pwd;
@@ -72,7 +85,13 @@ classdef DSSClass < handle
             self.dss_circuit.Solution.SolveDirect();
             self.original_bus_distances = self.dss_circuit.AllBusDistances;
         end
-
+        
+        function disp(self, str)
+            if self.debug_enabled
+                disp(str);
+            end
+        end
+        
         function set_load_shape(self, load_shapes, randomised)
             assert(size(load_shapes, 2) >= self.dss_circuit.Loads.Count, ...
                 'DSSClass:set_load_shape', ...
@@ -84,9 +103,8 @@ classdef DSSClass < handle
             if randomised
                 load_shapes = load_shapes(:, randperm(size(load_shapes, 2)));
             end
-
-            self.dss_circuit.Meters.ResetAll;
-            self.dss_circuit.Monitors.ResetAll;
+            
+            self.reset();
 
             idx = self.dss_circuit.Loads.First;
             while idx > 0
@@ -104,8 +122,19 @@ classdef DSSClass < handle
             load_count = self.dss_circuit.Loads.Count;
         end
 
-        function solve(self)
+        function reset(self)
+            self.dss_circuit.Meters.ResetAll;
+            self.dss_circuit.Monitors.ResetAll;
+        end
+        
+        function converged = solve(self)
             self.dss_circuit.Solution.Solve;
+            converged = self.dss_circuit.Solution.Converged;
+            if converged
+                self.disp('> Solution converged');
+            else
+                self.disp('> Solution did not converge');
+            end
         end
 
         function [pq, vi] = get_monitor_data(self)
