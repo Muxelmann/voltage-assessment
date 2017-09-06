@@ -18,10 +18,17 @@ ele_string = [ele.id ' ['];
 field_names = fieldnames(ele);
 field_names(cellfun(@(x) strcmp(x, 'id'), field_names)) = [];
 for i = 1:length(field_names)
+    field_value = ele.(field_names{i});
+    if isnumeric(field_value)
+        field_value = ['[' strjoin(reshape(arrayfun(@(x) sprintf('%2.10f', x), field_value', 'uni', 0), 1, []), ', ') ']'];
+    end
+    if iscell(field_value)
+        field_value = ['[' strjoin(reshape(field_value, 1, []), ', ') ']'];
+    end
     if i > 1
-        ele_string = [ele_string ', ' field_names{i} ': ' ele.(field_names{i})];
+        ele_string = [ele_string ', ' field_names{i} ': ' field_value];
     else
-        ele_string = [ele_string field_names{i} ': ' ele.(field_names{i})];
+        ele_string = [ele_string field_names{i} ': ' field_value];
     end
 end
 

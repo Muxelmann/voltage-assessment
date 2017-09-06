@@ -80,7 +80,6 @@ assert(node.hasAttribute('rdf:ID'), ...
     'CIMClass:get_cim_element:no-id', ...
     ['The elemenet ' char(node) ' has no ID']);
 ele.id = char(node.getAttribute('rdf:ID'));
-
 ele.tag = char(node.getTagName);
 end
 

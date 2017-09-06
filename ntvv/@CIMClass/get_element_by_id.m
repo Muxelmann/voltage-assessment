@@ -1,4 +1,4 @@
-function [ ele ] = get_element_by_id( self, id, search_eles )
+function [ ele, idx ] = get_element_by_id( self, id, search_eles )
 
 if exist('search_eles', 'var') == 0
     search_eles = self.ele;
@@ -25,6 +25,6 @@ if sum(idx) > 1
 end
 
 ele = search_eles{idx};
-
+idx = find(idx);
 end
 

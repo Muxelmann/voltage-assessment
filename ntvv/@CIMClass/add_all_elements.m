@@ -6,6 +6,8 @@ rdf_data = xml_data.getElementsByTagName('rdf:RDF');
 assert(rdf_data.getLength <= 1, 'CIMClass:find_all_elements:rdf-error', ...
     ['Found RDF ' num2str(rdf_data.getLength) ' times']);
 
+self.ele_buffers = [];
+
 if rdf_data.getLength == 0
     return
 end
