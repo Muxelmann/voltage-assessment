@@ -2,6 +2,12 @@ function [ ele ] = get_element_by_id( self, id, search_eles )
 
 if exist('search_eles', 'var') == 0
     search_eles = self.ele;
+elseif ischar(search_eles)
+    search_eles_field = strrep(search_eles, ':', '_');
+    if isfield(self.ele_buffers, search_eles_field) == 0
+        self.ele_buffers.(search_eles_field) = self.get_elements_by_tag(search_eles);
+    end
+    search_eles = self.ele_buffers.(search_eles_field);
 end
 
 idx = cellfun(@(x) strcmp(x.id, id), search_eles);

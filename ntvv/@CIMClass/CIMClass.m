@@ -30,6 +30,8 @@ classdef CIMClass < handle
         [ ele ] = remove_elements_from_set( self, remove_eles, search_eles )
         
         [ tags ] = get_string( self, search_eles )
+        
+        [ cn, terminals ] = save_opendss_for_equipment( self, equipment )
     end
     
     methods (Static = true)
