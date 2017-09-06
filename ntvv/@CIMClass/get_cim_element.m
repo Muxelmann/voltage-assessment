@@ -3,6 +3,10 @@ function [ ele ] = get_cim_element( node )
 switch char(node.getNodeName)
     case 'cim:Asset'
         ele = get_asset(node);
+    case 'cim:ACLineSegment'
+        ele = get_ac_line_segment(node);
+    case 'cim:ACLineSegmentPhase'
+        ele = get_ac_line_segment_phase(node);
     case 'cim:BaseVoltage'
         ele = get_base_voltage(node);
     case 'cim:Bay'
@@ -11,12 +15,28 @@ switch char(node.getNodeName)
         ele = get_busbar_section(node);
     case 'cim:BusbarSectionInfo'
         ele = get_busbar_section_info(node);
+    case 'cim:CableInfo'
+        ele = get_cable_info(node);
+    case 'cim:CompositeSwitch'
+        ele = get_composite_switch(node);
     case 'cim:ConnectivityNode'
         ele = get_connectivity_node(node);
     case 'cim:Disconnector'
         ele = get_disconnector(node);
+    case 'cim:EnergyConsumer'
+        ele = get_energy_consumer(node);
+    case 'cim:EnergyServicePoint'
+        ele = get_energy_service_point(node);
+    case 'cim:EnergySource'
+        ele = get_energy_source(node);
     case 'cim:Fuse'
         ele = get_fuse(node);
+    case 'cim:Line'
+        ele = get_line(node);
+    case 'cim:LoadBreakSwitch'
+        ele = get_load_break_switch(node);
+    case 'cim:Pole'
+        ele = get_pole(node);
     case 'cim:PowerTransformer'
         ele = get_power_transformer(node);
     case 'cim:PowerTransformerInfo'
@@ -41,6 +61,10 @@ switch char(node.getNodeName)
         ele = get_transformer_tank_end(node);
     case 'cim:TransformerTankInfo'
         ele = get_transformer_tank_info(node);
+    case 'cim:OverheadWireInfo'
+        ele = get_overhead_wire_info(node);
+    case 'cim:UsagePoint'
+        ele = get_usage_point(node);
     case 'cim:VoltageLevel'
         ele = get_voltage_level(node);
     otherwise
@@ -56,210 +80,285 @@ assert(node.hasAttribute('rdf:ID'), ...
     'CIMClass:get_cim_element:no-id', ...
     ['The elemenet ' char(node) ' has no ID']);
 ele.id = char(node.getAttribute('rdf:ID'));
+
+ele.tag = char(node.getTagName);
+end
+
+function res = get_resource(node, tag)
+tmp = node.getElementsByTagName(tag);
+if tmp.getLength == 0
+    res = '';
+elseif tmp.getLength == 1
+    res = char(tmp.item(0).getAttribute('rdf:resource'));
+    res = strsplit(res, '#');
+    res = res{end};
+elseif tmp.getLength > 1
+    res = repmat({''}, tmp.getLength, 1);
+    for i = 1:tmp.getLength
+        res{i} = char(tmp.item(i-1).getAttribute('rdf:resource'));
+        res{i} = strsplit(res{i}, '#');
+        res{i} = res{i}{end};
+    end
+else
+    assert(false, ['resource for ' tag ' in ' node ' caused an error']);
+end
+end
+
+function dat = get_data(node, tag)
+tmp = node.getElementsByTagName(tag);
+if tmp.getLength == 0
+    dat = '';
+elseif tmp.getLength == 1
+    dat = char(tmp.item(0).getChildNodes.item(0).getData);
+elseif tmp.getLength > 1
+    dat = repmat({[]}, tmp.getLength, 1);
+    for i = 1:tmp.getLength
+        dat{i} = char(tmp.item(i-1).getChildNodes.item(0).getData);
+    end
+else
+    assert(false, ['data for ' tag ' in ' node ' caused an error']);
+end
 end
 
 function ele = get_asset(node)
 ele = get_id(node);
-ele.type = char(node.getElementsByTagName('cim:Asset.type').item(0).getChildNodes.item(0).getData);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-
-psr = node.getElementsByTagName('cim:Asset.PowerSystemResources');
-ele.power_system_resource = {};
-for i = 1:psr.getLength
-    ele.power_system_resource{end+1} = char(psr.item(i-1).getAttribute('rdf:resource'));
-    ele.power_system_resource{end} = ele.power_system_resource{end}(2:end);
+ele.type = get_data(node, 'cim:Asset.type');
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.power_system_resource = get_resource(node, 'cim:Asset.PowerSystemResources');
+ele.asset_info = get_resource(node, 'cim:Asset.AssetInfo');
 end
 
-ele.asset_info = char(node.getElementsByTagName('cim:Asset.AssetInfo').item(0).getAttribute('rdf:resource'));
-ele.asset_info = ele.asset_info(2:end);
+function ele = get_ac_line_segment(node)
+ele = get_id(node);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.length = get_data(node, 'cim:Conductor.length');
+ele.psr_type = get_resource(node, 'cim:PowerSystemResource.PSRType');
+ele.equipment_container = get_resource(node, 'cim:Equipment.EquipmentContainer');
+end
+
+function ele = get_ac_line_segment_phase(node)
+ele = get_id(node);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.phase = get_resource(node, 'cim:ACLineSegmentPhase.phase');
+ele.ac_line_segment = get_resource(node, 'cim:ACLineSegmentPhase.ACLineSegment');
 end
 
 function ele = get_base_voltage(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.base_voltage = char(node.getElementsByTagName('cim:BaseVoltage.nominalVoltage').item(0).getChildNodes.item(0).getData);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.base_voltage = get_data(node, 'cim:BaseVoltage.nominalVoltage');
 end
 
 function ele = get_bay(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.substation = char(node.getElementsByTagName('cim:Bay.Substation').item(0).getAttribute('rdf:resource'));
-ele.substation = ele.substation(2:end);
-ele.voltage_level = char(node.getElementsByTagName('cim:Bay.VoltageLevel').item(0).getAttribute('rdf:resource'));
-ele.voltage_level = ele.voltage_level(2:end);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.substation = get_resource(node, 'cim:Bay.Substation');
+ele.voltage_level = get_resource(node, 'cim:Bay.VoltageLevel');
 end
 
 function ele = get_busbar_section(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-if node.getElementsByTagName('cim:PowerSystemResource.PSRType').getLength > 0
-    ele.psr_type = char(node.getElementsByTagName('cim:PowerSystemResource.PSRType').item(0).getAttribute('rdf:resource'));
-    ele.psr_type = ele.psr_type(2:end);
-end
-if node.getElementsByTagName('cim:ConductingEquipment.BaseVoltage').getLength > 0
-    ele.voltage_base = char(node.getElementsByTagName('cim:ConductingEquipment.BaseVoltage').item(0).getAttribute('rdf:resource'));
-    ele.voltage_base = ele.voltage_base(2:end);
-end
-if node.getElementsByTagName('cim:Equipment.EquipmentContainer').getLength > 0
-    ele.equipment_container = char(node.getElementsByTagName('cim:Equipment.EquipmentContainer').item(0).getAttribute('rdf:resource'));
-    ele.equipment_container = ele.equipment_container(2:end);
-end
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.psr_type = get_resource(node, 'cim:PowerSystemResource.PSRType');
+ele.voltage_base = get_resource(node, 'cim:ConductingEquipment.BaseVoltage');
+ele.equipment_container = get_resource(node, 'cim:Equipment.EquipmentContainer');
 end
 
 function ele = get_busbar_section_info(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+end
+
+function ele = get_cable_info(node)
+ele = get_id(node);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+end
+
+function ele = get_composite_switch(node)
+ele = get_id(node);
+ele.composite_switch_type = get_data(node, 'cim:CompositeSwitch.compositeSwitchType');
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.psr_type = get_resource(node, 'cim:PowerSystemResource.PSRType');
+ele.equipment_container = get_resource(node, 'cim:Equipment.EquipmentContainer');
 end
 
 function ele = get_connectivity_node(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.container = char(node.getElementsByTagName('cim:ConnectivityNode.ConnectivityNodeContainer').item(0).getAttribute('rdf:resource'));
-ele.container = ele.container(2:end);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.container = get_resource(node, 'cim:ConnectivityNode.ConnectivityNodeContainer');
 end
 
 function ele = get_disconnector(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.normal_open = char(node.getElementsByTagName('cim:Switch.normalOpen').item(0).getChildNodes.item(0).getData);
-ele.psr_type = char(node.getElementsByTagName('cim:PowerSystemResource.PSRType').item(0).getAttribute('rdf:resource'));
-ele.psr_type = ele.psr_type(2:end);
-ele.base_voltage = char(node.getElementsByTagName('cim:ConductingEquipment.BaseVoltage').item(0).getAttribute('rdf:resource'));
-ele.base_voltage = ele.base_voltage(2:end);
-ele.equipment_container = char(node.getElementsByTagName('cim:Equipment.EquipmentContainer').item(0).getAttribute('rdf:resource'));
-ele.equipment_container = ele.equipment_container(2:end);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.normal_open = get_data(node, 'cim:Switch.normalOpen');
+ele.psr_type = get_resource(node, 'cim:PowerSystemResource.PSRType');
+ele.base_voltage = get_resource(node, 'cim:ConductingEquipment.BaseVoltage');
+ele.equipment_container = get_resource(node, 'cim:Equipment.EquipmentContainer');
+end
+
+function ele = get_energy_consumer(node)
+ele = get_id(node);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.energy_service_point = get_resource(node, 'cim:EnergyConsumer.EnergyServicePoint');
+ele.equipment_container = get_resource(node, 'cim:Equipment.EquipmentContainer');
+end
+
+function ele = get_energy_service_point(node)
+ele = get_id(node);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.type = get_data(node, 'cim:EnergyServicePoint.type');
+ele.critical_customer = get_data(node, 'cim:EnergyServicePoint.criticalCustomer');
+ele.customer_count = get_data(node, 'cim:EnergyServicePoint.customerCount');
+ele.equipment_container = get_resource(node, 'cim:Equipment.EquipmentContainer');
+end
+
+function ele = get_energy_source(node)
+ele = get_id(node);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.type = get_data(node, 'cim:EnergyServicePoint.type');
+ele.critical_customer = get_data(node, 'cim:EnergyServicePoint.criticalCustomer');
+ele.customer_count = get_data(node, 'cim:EnergyServicePoint.customerCount');
+ele.equipment_container = get_resource(node, 'cim:Equipment.EquipmentContainer');
 end
 
 function ele = get_fuse(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.normal_open = char(node.getElementsByTagName('cim:Switch.normalOpen').item(0).getChildNodes.item(0).getData);
-ele.psr_type = char(node.getElementsByTagName('cim:PowerSystemResource.PSRType').item(0).getAttribute('rdf:resource'));
-ele.psr_type = ele.psr_type(2:end);
-ele.base_voltage = char(node.getElementsByTagName('cim:ConductingEquipment.BaseVoltage').item(0).getAttribute('rdf:resource'));
-ele.base_voltage = ele.base_voltage(2:end);
-ele.equipment_container = char(node.getElementsByTagName('cim:Equipment.EquipmentContainer').item(0).getAttribute('rdf:resource'));
-ele.equipment_container = ele.equipment_container(2:end);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.active_power = get_data(node, 'cim:EnergySource.activePower');
+ele.psr_type = get_resource(node, 'cim:PowerSystemResource.PSRType');
+ele.energy_service_point = get_resource(node, 'cim:EnergySource.EnergyServicePoint');
+ele.equipment_container = get_resource(node, 'cim:Equipment.EquipmentContainer');
+end
+
+function ele = get_line(node)
+ele = get_id(node);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+end
+
+function ele = get_load_break_switch(node)
+ele = get_id(node);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.noramal_open = get_data(node, 'cim:Switch.normalOpen');
+ele.composite_switch = get_resource(node, 'cim:Switch.CompositeSwitch');
+ele.psr_type = get_resource(node, 'cim:PowerSystemResource.PSRType');
+ele.base_voltage = get_resource(node, 'cim:ConductingEquipment.BaseVoltage');
+ele.equipment_container = get_resource(node, 'cim:Equipment.EquipmentContainer');
+end
+
+function ele = get_pole(node)
+ele = get_id(node);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+end
+
+function ele = get_overhead_wire_info(node)
+ele = get_id(node);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
 end
 
 function ele = get_power_transformer(node)
 ele = get_id(node);
-ele.alias_name = char(node.getElementsByTagName('cim:IdentifiedObject.aliasName').item(0).getChildNodes.item(0).getData);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.psr_type = char(node.getElementsByTagName('cim:PowerSystemResource.PSRType').item(0).getAttribute('rdf:resource'));
-ele.psr_type = ele.psr_type(2:end);
-ele.container = char(node.getElementsByTagName('cim:Equipment.EquipmentContainer').item(0).getAttribute('rdf:resource'));
-ele.container = ele.container(2:end);
+ele.alias_name = get_data(node, 'cim:IdentifiedObject.aliasName');
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.psr_type = get_resource(node, 'cim:PowerSystemResource.PSRType');
+ele.container = get_resource(node, 'cim:Equipment.EquipmentContainer');
 end
 
 function ele = get_power_transformer_info(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.transformer_tank_info = char(node.getElementsByTagName('cim:PowerTransformerInfo.TransformerTankInfo').item(0).getAttribute('rdf:resource'));
-ele.transformer_tank_info = ele.transformer_tank_info(2:end);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.transformer_tank_info = get_resource(node, 'cim:PowerTransformerInfo.TransformerTankInfo');
 end
 
 function ele = get_psr_type(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
 end
 
 function ele = get_ratio_tap_changer(node)
 ele = get_id(node);
-ele.neutral_step = char(node.getElementsByTagName('cim:TapChanger.neutralStep').item(0).getChildNodes.item(0).getData);
-ele.high_step = char(node.getElementsByTagName('cim:TapChanger.highStep').item(0).getChildNodes.item(0).getData);
-ele.normal_step = char(node.getElementsByTagName('cim:TapChanger.normalStep').item(0).getChildNodes.item(0).getData);
-ele.ltc_flag = char(node.getElementsByTagName('cim:TapChanger.ltcFlag').item(0).getChildNodes.item(0).getData);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.low_step = char(node.getElementsByTagName('cim:TapChanger.lowStep').item(0).getChildNodes.item(0).getData);
-ele.step_voltage_increment = char(node.getElementsByTagName('cim:RatioTapChanger.stepVoltageIncrement').item(0).getChildNodes.item(0).getData);
-ele.psr_type = char(node.getElementsByTagName('cim:PowerSystemResource.PSRType').item(0).getAttribute('rdf:resource'));
-ele.psr_type = ele.psr_type(2:end);
-ele.neutral_u = char(node.getElementsByTagName('cim:TapChanger.neutralU').item(0).getAttribute('rdf:resource'));
-ele.neutral_u = ele.neutral_u(2:end);
-ele.transformer_end = char(node.getElementsByTagName('cim:RatioTapChanger.TransformerEnd').item(0).getAttribute('rdf:resource'));
-ele.transformer_end = ele.transformer_end(2:end);
+ele.neutral_step = get_data(node, 'cim:TapChanger.neutralStep');
+ele.high_step = get_data(node, 'cim:TapChanger.highStep');
+ele.normal_step = get_data(node, 'cim:TapChanger.normalStep');
+ele.ltc_flag = get_data(node, 'cim:TapChanger.ltcFlag');
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.low_step = get_data(node, 'cim:TapChanger.lowStep');
+ele.step_voltage_increment = get_data(node, 'cim:RatioTapChanger.stepVoltageIncrement');
+ele.psr_type = get_resource(node, 'cim:PowerSystemResource.PSRType');
+ele.neutral_u = get_resource(node, 'cim:TapChanger.neutralU');
+ele.transformer_end = get_resource(node, 'cim:RatioTapChanger.TransformerEnd');
 end
 
 function ele = get_substation(node)
 ele = get_id(node);
-ele.alias_name = char(node.getElementsByTagName('cim:IdentifiedObject.aliasName').item(0).getChildNodes.item(0).getData);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.psr_type = char(node.getElementsByTagName('cim:PowerSystemResource.PSRType').item(0).getAttribute('rdf:resource'));
-ele.psr_type = ele.psr_type(2:end);
+ele.alias_name = get_data(node, 'cim:IdentifiedObject.aliasName');
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.psr_type = get_resource(node, 'cim:PowerSystemResource.PSRType');
 end
 
 function ele = get_switch_info(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
 end
 
 function ele = get_switch_phase(node)
 ele = get_id(node);
-ele.normal_open = char(node.getElementsByTagName('cim:SwitchPhase.normalOpen').item(0).getChildNodes.item(0).getData);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.phase_side1 = char(node.getElementsByTagName('cim:SwitchPhase.phaseSide1').item(0).getAttribute('rdf:resource'));
-ele.phase_side1 = ele.phase_side1(2:end);
-ele.phase_side2 = char(node.getElementsByTagName('cim:SwitchPhase.phaseSide2').item(0).getAttribute('rdf:resource'));
-ele.phase_side2 = ele.phase_side2(2:end);
-ele.switch = char(node.getElementsByTagName('cim:SwitchPhase.Switch').item(0).getAttribute('rdf:resource'));
-ele.switch = ele.switch(2:end);
+ele.normal_open = get_data(node, 'cim:SwitchPhase.normalOpen');
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.phase_side1 = get_resource(node, 'cim:SwitchPhase.phaseSide1');
+ele.phase_side2 = get_resource(node, 'cim:SwitchPhase.phaseSide2');
+ele.switch = get_resource(node, 'cim:SwitchPhase.Switch');
 end
 
 function ele = get_terminal(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.sequence_number = char(node.getElementsByTagName('cim:Terminal.sequenceNumber').item(0).getChildNodes.item(0).getData);
-ele.phases = char(node.getElementsByTagName('cim:Terminal.phases').item(0).getAttribute('rdf:resource'));
-ele.phases = ele.phases(2:end);
-ele.connectivity_node = char(node.getElementsByTagName('cim:Terminal.ConnectivityNode').item(0).getAttribute('rdf:resource'));
-ele.connectivity_node = ele.connectivity_node(2:end);
-ele.conducting_equipment = char(node.getElementsByTagName('cim:Terminal.ConductingEquipment').item(0).getAttribute('rdf:resource'));
-ele.conducting_equipment = ele.conducting_equipment(2:end);
-
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.sequence_number = get_data(node, 'cim:Terminal.sequenceNumber');
+ele.phases = get_resource(node, 'cim:Terminal.phases');
+ele.connectivity_node = get_resource(node, 'cim:Terminal.ConnectivityNode');
+ele.conducting_equipment = get_resource(node, 'cim:Terminal.ConductingEquipment');
 end
 
 function ele = get_transformer_end_info(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.end_number = char(node.getElementsByTagName('cim:TransformerEndInfo.endNumber').item(0).getChildNodes.item(0).getData);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.end_number = get_data(node, 'cim:TransformerEndInfo.endNumber');
 end
 
 function ele = get_transformer_tank(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.power_transformer = char(node.getElementsByTagName('cim:TransformerTank.PowerTransformer').item(0).getAttribute('rdf:resource'));
-ele.power_transformer = ele.power_transformer(2:end);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.power_transformer = get_resource(node, 'cim:TransformerTank.PowerTransformer');
 end
 
 function ele = get_transformer_tank_end(node)
 ele = get_id(node);
-ele.end_number = char(node.getElementsByTagName('cim:TransformerEnd.endNumber').item(0).getChildNodes.item(0).getData);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.phases = char(node.getElementsByTagName('cim:TransformerTankEnd.phases').item(0).getAttribute('rdf:resource'));
-ele.phases = ele.phases(2:end);
-ele.transformer_tank = char(node.getElementsByTagName('cim:TransformerTankEnd.TransformerTank').item(0).getAttribute('rdf:resource'));
-ele.transformer_tank = ele.transformer_tank(2:end);
-ele.terminal = char(node.getElementsByTagName('cim:TransformerEnd.Terminal').item(0).getAttribute('rdf:resource'));
-ele.terminal = ele.terminal(2:end);
-ele.base_voltage = char(node.getElementsByTagName('cim:TransformerEnd.BaseVoltage').item(0).getAttribute('rdf:resource'));
-ele.base_voltage = ele.base_voltage(2:end);
+ele.end_number = get_data(node, 'cim:TransformerEnd.endNumber');
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.phases = get_resource(node, 'cim:TransformerTankEnd.phases');
+ele.transformer_tank = get_resource(node, 'cim:TransformerTankEnd.TransformerTank');
+ele.terminal = get_resource(node, 'cim:TransformerEnd.Terminal');
+ele.base_voltage = get_resource(node, 'cim:TransformerEnd.BaseVoltage');
 end
 
 function ele = get_transformer_tank_info(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.power_transformer_info = char(node.getElementsByTagName('cim:TransformerTankInfo.PowerTransformerInfo').item(0).getAttribute('rdf:resource'));
-ele.power_transformer_info = ele.power_transformer_info(2:end);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.power_transformer_info = get_resource(node, 'cim:TransformerTankInfo.PowerTransformerInfo');
+end
+
+function ele = get_usage_point(node)
+ele = get_id(node);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.phase_code = get_resource(node, 'cim:UsagePoint.phaseCode');
+ele.equipments = get_resource(node, 'cim:UsagePoint.Equipments');
 end
 
 function ele = get_voltage_level(node)
 ele = get_id(node);
-ele.name = char(node.getElementsByTagName('cim:IdentifiedObject.name').item(0).getChildNodes.item(0).getData);
-ele.base_voltage = char(node.getElementsByTagName('cim:VoltageLevel.BaseVoltage').item(0).getAttribute('rdf:resource'));
-ele.base_voltage = ele.base_voltage(2:end);
-ele.substation = char(node.getElementsByTagName('cim:VoltageLevel.Substation').item(0).getAttribute('rdf:resource'));
-ele.substation = ele.substation(2:end);
+ele.name = get_data(node, 'cim:IdentifiedObject.name');
+ele.base_voltage = get_resource(node, 'cim:VoltageLevel.BaseVoltage');
+ele.substation = get_resource(node, 'cim:VoltageLevel.Substation');
 end
 
 

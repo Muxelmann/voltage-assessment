@@ -3,8 +3,13 @@ function [ self ] = add_all_elements( self, xml_file )
 xml_data = xmlread(xml_file);
 rdf_data = xml_data.getElementsByTagName('rdf:RDF');
 
-assert(rdf_data.getLength == 1, 'CIMClass:find_all_elements:rdf-error', ...
+assert(rdf_data.getLength <= 1, 'CIMClass:find_all_elements:rdf-error', ...
     ['Found RDF ' num2str(rdf_data.getLength) ' times']);
+
+if rdf_data.getLength == 0
+    return
+end
+
 rdf_data = rdf_data.item(0);
 
 nodes = rdf_data.getChildNodes;
