@@ -39,8 +39,11 @@ while isempty(cn_list) == 0
     terminal_new = self.get_elements_by_resource(cn_next.id, 'cim:Terminal');
     terminal_new = self.remove_elements_from_set(terminal_old, terminal_new);
     
-    terminal_list = [terminal_list; terminal_new];
-    
+    if exist('terminal_list', 'var') == 0
+        terminal_list = terminal_new;
+    else
+        terminal_list = [terminal_list; terminal_new];
+    end
     while isempty(terminal_list) == 0
         terminal_next = terminal_list{1};
         terminal_list(1) = [];

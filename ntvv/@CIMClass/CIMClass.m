@@ -5,10 +5,13 @@ classdef CIMClass < handle
     properties
         % All CIM elements
         ele = {};
-        % Buffer for querying lists of elements
-        ele_buffers = [];
         % All elements that will be written into OpenDSS directory
         output_dir = [];
+    end
+    
+    properties (Transient = true)
+        % Buffer for querying lists of elements
+        ele_buffers = [];
     end
     
     methods

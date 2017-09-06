@@ -10,9 +10,48 @@ for i = 1:length(terminals)
 end
 
 switch equipment.tag
+    case 'cim:PowerTransformer'
+        save_power_transformer(self, equipment);
+    case 'cim:BusbarSection'
+        save_busbar_section(self, equipment);
+    case 'cim:Disconnector'
+        save_disconnector(self, equipment);
+    case 'cim:Fuse'
+        save_fuse(self, equipment);
+    case 'cim:ACLineSegment'
+        save_ac_line_segment(self, equipment);
+    case 'cim:EnergyServicePoint'
+        save_energy_service_point(self, equipment);
+    case 'cim:EnergyConsumer'
+        save_energy_consumer(self, equipment);
     otherwise
-        warning(sprintf('No idea how to save %s\n%s\n', equipment.tag, self.get_string(equipment)));
+        warning(['No idea how to save ', equipment.tag]);
 end
 
 end
+
+function save_power_transformer(self, equipment)
+end
+
+function save_busbar_section(self, equipment)
+end
+
+function save_disconnector(self, equipment)
+end
+
+function save_fuse(self, equipment)
+end
+
+function save_ac_line_segment(self, equipment)
+end
+
+function save_energy_service_point(self, equipment)
+end
+
+function save_energy_consumer(self, equipment)
+end
+
+
+
+
 
