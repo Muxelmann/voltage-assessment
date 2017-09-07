@@ -10,8 +10,8 @@ switch equipment.tag
         [terminals, cn] = save_disconnector(self, equipment);
     case 'cim:Fuse'
         [terminals, cn] = save_fuse(self, equipment);
-%     case 'cim:ACLineSegment'
-%         [terminals, cn] = save_ac_line_segment(self, equipment);
+    case 'cim:ACLineSegment'
+        [terminals, cn] = save_ac_line_segment(self, equipment);
     case 'cim:EnergyServicePoint'
         [terminals, cn] = save_energy_service_point(self, equipment);
 %     case 'cim:EnergyConsumer'
@@ -247,7 +247,46 @@ function [terminals, cn] = save_ac_line_segment(self, equipment)
 [terminals, cn] = get_terminals(self, equipment);
 dss = [];
 
-% Break into several line segments!
+line_bus = cellfun(@(x) x.name, cn, 'uni', 0);
+line_length = str2double(equipment.length);
+
+% Find asset for line
+line_asset = self.get_elements_by_resource(equipment.id, 'cim:Asset');
+assert(length(line_asset) == 1, ...
+    'CIMClass:save_opendss_for_equipment:save_ac_line_segment:no-asset', ...
+    ['Found ' num2str(length(line_asset)) ' for ' equipment.id]);
+line_asset = line_asset{1};
+
+cable_info = self.get_element_by_id(line_asset.asset_info, 'cim:CableInfo');
+
+dss.line_linecode = cable_info.name;
+dss.line_phases = 3;
+dss.line_units = 'm';
+
+length_scale = sqrt(sum(diff(equipment.coords).^2, 2));
+length_scale = length_scale / sum(length_scale);
+
+for i = 1:size(equipment.coords, 1)-1
+    % Extract pairs of buses for each line segment
+    if i == 1
+        dss.line_bus = line_bus(1);
+        dss.line_bus{end+1} = [line_bus{1} '_' num2str(i)];
+    elseif i == size(equipment.coords, 1)-1
+        dss.line_bus = {[line_bus{1} '_' num2str(i-1)]};
+        dss.line_bus{end+1} = line_bus{2};
+    else
+        dss.line_bus = {[line_bus{1} '_' num2str(i-1)]};
+        dss.line_bus{end+1} = [line_bus{1} '_' num2str(i)];
+    end
+    % Scale the segment's length
+    dss.line_length = length_scale(i) * line_length;
+    % Save the line
+    save_new_line(self, dss);
+    % Extract coordinates
+    coords = equipment.coords(i:i+1,:);
+    % Save bus coordiconates
+    save_coordinates(self, dss.line_bus, coords)
+end
 end
 
 function [terminals, cn] = save_energy_service_point(self, equipment)
