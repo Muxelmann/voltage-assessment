@@ -4,6 +4,7 @@ function [ self ] = parse_element_tree( self )
 self.dss_ele = [];
 
 % Then clear the OpenDSS output directory
+fclose('all');
 out_dir_content = dir(fullfile(self.output_dir, '*.dss'));
 for i = 1:length(out_dir_content)
     delete(fullfile(out_dir_content(i).folder, out_dir_content(i).name));

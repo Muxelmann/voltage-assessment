@@ -6,16 +6,16 @@ switch equipment.tag
         [terminals, cn] = save_power_transformer(self, equipment);
     case 'cim:BusbarSection'
         [terminals, cn] = save_busbar_section(self, equipment);
-%     case 'cim:Disconnector'
-%         save_disconnector(self, equipment);
-%     case 'cim:Fuse'
-%         save_fuse(self, equipment);
+    case 'cim:Disconnector'
+        [terminals, cn] = save_disconnector(self, equipment);
+    case 'cim:Fuse'
+        [terminals, cn] = save_fuse(self, equipment);
 %     case 'cim:ACLineSegment'
-%         save_ac_line_segment(self, equipment);
-%     case 'cim:EnergyServicePoint'
-%         save_energy_service_point(self, equipment);
+%         [terminals, cn] = save_ac_line_segment(self, equipment);
+    case 'cim:EnergyServicePoint'
+        [terminals, cn] = save_energy_service_point(self, equipment);
 %     case 'cim:EnergyConsumer'
-%         save_energy_consumer(self, equipment);
+%         [terminals, cn] = save_energy_consumer(self, equipment);
     otherwise
         [terminals, cn] = get_terminals(self, equipment);
         warning(['No idea how to save ', equipment.tag]);
@@ -138,6 +138,26 @@ end
 
 end
 
+function save_coordinates(self, buses, coords)
+
+if isfield(self.dss_ele, 'buses') == 0
+    self.dss_ele.buses = {};
+end
+
+for i = 1:length(buses)
+    bus = buses{i};
+    if any(cellfun(@(x) strcmp(x, bus), self.dss_ele.buses))
+        continue
+    else
+        self.dss_ele.buses{end+1} = bus;
+    end
+    
+    fid = fopen(fullfile(self.output_dir, 'buscoords.dss'), 'a');
+    fprintf(fid, '%s, %.10f, %.10f\n', bus, coords(i, 1), coords(i, 2));
+    fclose(fid);
+end
+end
+
 function [terminals, cn] = save_power_transformer(self, equipment)
 [terminals, cn] = get_terminals(self, equipment);
 dss = [];
@@ -192,20 +212,53 @@ dss.line_phases = 3;
 dss.line_units = 'm';
 
 save_new_line(self, dss);
+if isfield(equipment, 'coords')
+    save_coordinates(self, dss.line_bus, equipment.coords)
+end
+end
+
+function [terminals, cn] = save_disconnector(self, equipment)
+[terminals, cn] = get_terminals(self, equipment);
+dss = [];
+
+dss.line_bus = cellfun(@(x) x.name, cn, 'uni', 0);
+dss.line_length = 1e-4;
+dss.line_linecode = 'DEFAULT';
+dss.line_phases = 3;
+dss.line_units = 'm';
+
+save_new_line(self, dss);
+end
+
+function [terminals, cn] = save_fuse(self, equipment)
+[terminals, cn] = get_terminals(self, equipment);
+dss = [];
+
+dss.line_bus = cellfun(@(x) x.name, cn, 'uni', 0);
+dss.line_length = 1e-4;
+dss.line_linecode = 'DEFAULT';
+dss.line_phases = 3;
+dss.line_units = 'm';
+
+save_new_line(self, dss);
+end
+
+function [terminals, cn] = save_ac_line_segment(self, equipment)
+[terminals, cn] = get_terminals(self, equipment);
+dss = [];
+
+% Break into several line segments!
+end
+
+function [terminals, cn] = save_energy_service_point(self, equipment)
+[terminals, cn] = get_terminals(self, equipment);
+dss = [];
+
+% Do nothing...
 
 end
 
-function save_disconnector(self, equipment)
-end
-
-function save_fuse(self, equipment)
-end
-
-function save_ac_line_segment(self, equipment)
-end
-
-function save_energy_service_point(self, equipment)
-end
-
-function save_energy_consumer(self, equipment)
+function [terminals, cn] = save_energy_consumer(self, equipment)
+[terminals, cn] = get_terminals(self, equipment);
+dss = [];
 end

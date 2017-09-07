@@ -21,11 +21,11 @@ classdef CIMClass < handle
     methods
         function self = CIMClass( output_dir )
             
-            if exist('output_dir', 'var') == 1 && exist(output_dir, 'dir') == 0
+            if exist('output_dir', 'var') > 0 && exist(output_dir, 'dir') == 0
                 mkdir(output_dir);
             end
             
-            if exist(output_dir, 'dir') == 1
+            if exist(output_dir, 'dir') > 0
                 self.output_dir = output_dir;
             end
             

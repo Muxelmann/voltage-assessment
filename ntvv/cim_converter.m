@@ -11,6 +11,8 @@ gml_files = dir(fullfile(cim_export, '*.gml'));
 equ_files = dir(fullfile(cim_equipment, '*.csv'));
 
 cim = CIMClass(output_dir);
+
+%%
 for i = 1:length(xml_files)
     xml_path = fullfile(xml_files(i).folder, xml_files(i).name);
     cim.add_all_elements(xml_path);
@@ -29,5 +31,8 @@ end
 cim.save();
 
 %%
+
+cim.load();
+
 clc
 cim.parse_element_tree();
