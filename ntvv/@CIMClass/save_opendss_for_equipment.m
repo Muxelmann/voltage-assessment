@@ -1,6 +1,29 @@
 function [ cn, terminals ] = save_opendss_for_equipment( self, equipment )
 %SAVE_OPENDSS_FOR_ELEMENT Saves element to OpenDSS file
 
+switch equipment.tag
+    case 'cim:PowerTransformer'
+        [terminals, cn] = save_power_transformer(self, equipment);
+    case 'cim:BusbarSection'
+        [terminals, cn] = save_busbar_section(self, equipment);
+%     case 'cim:Disconnector'
+%         save_disconnector(self, equipment);
+%     case 'cim:Fuse'
+%         save_fuse(self, equipment);
+%     case 'cim:ACLineSegment'
+%         save_ac_line_segment(self, equipment);
+%     case 'cim:EnergyServicePoint'
+%         save_energy_service_point(self, equipment);
+%     case 'cim:EnergyConsumer'
+%         save_energy_consumer(self, equipment);
+    otherwise
+        [terminals, cn] = get_terminals(self, equipment);
+        warning(['No idea how to save ', equipment.tag]);
+end
+
+end
+
+function [terminals, cn] = get_terminals(self, equipment)
 % Find the equipment's terminals
 terminals = self.get_elements_by_resource(equipment.id, 'cim:Terminal');
 % Populate the corresponding new connectivity nodes
@@ -8,32 +31,168 @@ cn = repmat({[]}, 1, length(terminals));
 for i = 1:length(terminals)
     cn{i} = self.get_element_by_id(terminals{i}.connectivity_node, 'cim:ConnectivityNode');
 end
+% Make sure the terminals are ordered correctly
+terminals_oder = cellfun(@(x) str2double(x.sequence_number), terminals);
+terminals = terminals(terminals_oder);
+cn = cn(terminals_oder);
 
-switch equipment.tag
-    case 'cim:PowerTransformer'
-        save_power_transformer(self, equipment);
-    case 'cim:BusbarSection'
-        save_busbar_section(self, equipment);
-    case 'cim:Disconnector'
-        save_disconnector(self, equipment);
-    case 'cim:Fuse'
-        save_fuse(self, equipment);
-    case 'cim:ACLineSegment'
-        save_ac_line_segment(self, equipment);
-    case 'cim:EnergyServicePoint'
-        save_energy_service_point(self, equipment);
-    case 'cim:EnergyConsumer'
-        save_energy_consumer(self, equipment);
-    otherwise
-        warning(['No idea how to save ', equipment.tag]);
+end
+
+function save_new_transformer(self, dss)
+
+if isfield(self.dss_ele, 'transformer')
+    self.dss_ele.transformer = self.dss_ele.transformer + 1;
+else
+    self.dss_ele.transformer = 1;
+end
+
+dss.txfrmr_name = strcat('txfrmr_', num2str(self.dss_ele.transformer));
+fid = fopen(fullfile(self.output_dir, 'transformers.dss'), 'a');
+fprintf(fid, [...
+    'new Transformer.' dss.txfrmr_name ...
+    ' windings=' num2str(dss.txfrmr_windings) ...
+    ' xhl=' num2str(dss.txfrmr_xhl) ...
+    ' basefreq=' num2str(dss.txfrmr_basefreq) ...
+    ' sub=' dss.txfrmr_sub ...
+    '\n']);
+for i = 1:dss.txfrmr_windings
+    fprintf(fid, [...
+        ' ~ Wdg=' num2str(i) ...
+        ' Bus=' dss.wdg_bus{i} ...
+        ' Conn=' dss.wdg_conn{i} ...
+        ' Kv=' num2str(dss.wdg_kv(i)) ...
+        ' Kva=' num2str(dss.wdg_kva(i)) ...
+        ' rneut=' num2str(dss.wdg_rneut(i)) ...
+        ' xneut=' num2str(dss.wdg_xneut(i)) ...
+        '\n']);
+end
+fclose(fid);
+end
+
+function save_new_line(self, dss)
+if isfield(self.dss_ele, 'line')
+    self.dss_ele.line = self.dss_ele.line + 1;
+else
+    self.dss_ele.line = 1;
+end
+
+dss.line_name = strcat('line_', num2str(self.dss_ele.line));
+dss.line_linecode = self.get_fixed_id(dss.line_linecode);
+
+fid = fopen(fullfile(self.output_dir, 'lines.dss'), 'a');
+fprintf(fid, [...
+    'new Line.' dss.line_name ...
+    ' bus1=' [dss.line_bus{1} '.1.2.3'] ...
+    ' bus2=' [dss.line_bus{2} '.1.2.3'] ...
+    ' Linecode=' dss.line_linecode ...
+    ' Length=' num2str(dss.line_length) ...
+    ' Phases=' num2str(dss.line_phases) ...
+    '\n']);
+fclose(fid);
+
+% Also, save the linecode if it has not already been saved
+
+if isfield(self.dss_ele, 'linecode') == 0
+    self.dss_ele.linecode = {};
+end
+
+if any(cellfun(@(x) strcmp(x, dss.line_linecode), self.dss_ele.linecode)) == 0
+    self.dss_ele.linecode{end+1} = dss.line_linecode;
+    
+    linecode = [];
+    linecode.name = dss.line_linecode;
+    if isfield(self.equipments, 'cable') == 1 && isfield(self.equipments.cable, linecode.name)
+        linecode_info = self.equipments.cable.(linecode.name);
+        linecode.r1 = linecode_info.PositiveSequenceResistance;
+        linecode.x1 = linecode_info.PositiveSequenceReactance;
+        linecode.r0 = linecode_info.ZeroSequenceResistance;
+        linecode.x0 = linecode_info.ZeroSequenceReactance;
+        linecode.normamps = linecode_info.NominalRating;
+    else
+        warning(['Linecode with default specifications is being used for: ' linecode_name]);
+        linecode.r1 = 0.4;
+        linecode.x1 = 1.4;
+        linecode.r0 = 0.4;
+        linecode.x0 = 1.4;
+        linecode.normamps = 100;
+    end
+    
+    linecode.units = 'km';
+    linecode.basefreq = 50.0;
+    linecode.nphases = 3;
+    
+    fid = fopen(fullfile(self.output_dir, 'linecodes.dss'), 'a');
+    fprintf(fid, [...
+        'New Linecode.' linecode.name ...
+        ' Nphases=' num2str(linecode.nphases) ...
+        ' R1=' num2str(linecode.r1) ...
+        ' X1=' num2str(linecode.x1) ...
+        ' R0=' num2str(linecode.r0) ...
+        ' X0=' num2str(linecode.x0) ...
+        ' Units=' linecode.units ...
+        ' BaseFreq=' num2str(linecode.basefreq) ...
+        '\n']);
+    fclose(fid);
+    
 end
 
 end
 
-function save_power_transformer(self, equipment)
+function [terminals, cn] = save_power_transformer(self, equipment)
+[terminals, cn] = get_terminals(self, equipment);
+dss = [];
+
+% Find transformer's buses
+dss.wdg_bus = cellfun(@(x) x.name, cn, 'uni', 0);
+
+% Find asset for transformer information
+txfrmr_asset = self.get_elements_by_resource(equipment.id, 'cim:Asset');
+assert(length(txfrmr_asset) == 1, ...
+    'CIMClass:save_opendss_for_equipment:save_power_transformer:no-asset', ...
+    ['Found ' num2str(length(txfrmr_asset)) ' for ' equipment.id]);
+txfrmr_asset = txfrmr_asset{1};
+
+% Find transformer information and save
+txfrmr_info = self.get_element_by_id(txfrmr_asset.asset_info);
+txfrmr_info_name = self.get_fixed_id(txfrmr_info.name);
+
+if isfield(self.equipments, 'transformer') == 1 && isfield(self.equipments.transformer, txfrmr_info_name)
+    txfrmr_info = self.equipments.transformer.(txfrmr_info_name);
+    dss.wdg_kv = [txfrmr_info.PrimaryVoltageKVLL, txfrmr_info.SecondaryVoltageKVLL];
+    dss.wdg_kva = [txfrmr_info.NominalRatingKVA, txfrmr_info.NominalRatingKVA];
+    dss.wdg_conn = {'delta', 'wye'};
+    dss.wdg_rneut = [txfrmr_info.PrimGroundingResistanceOhms, txfrmr_info.SecGroundingResistanceOhms];
+    dss.wdg_xneut = [txfrmr_info.PrimGroundingReactanceOhms, txfrmr_info.SecGroundingReactanceOhms];
+    dss.txfrmr_xhl = txfrmr_info.XR0Ratio;
+else
+    warning(['Transformer with default specifications is being used for: ' equipment.id]);
+    dss.wdg_kv = [11.0, 0.4];
+    dss.wdg_kva = [500.0, 500.0];
+    dss.wdg_conn = {'delta', 'wye'};
+    dss.wdg_rneut = [0.0, 0.0];
+    dss.wdg_xneut = [0.0, 0.0];
+    dss.txfrmr_xhl = 8.0;
 end
 
-function save_busbar_section(self, equipment)
+dss.txfrmr_windings = 2;
+dss.txfrmr_basefreq = 50.0;
+dss.txfrmr_sub = 'y';
+
+save_new_transformer(self, dss);
+end
+
+function [terminals, cn] = save_busbar_section(self, equipment)
+[terminals, cn] = get_terminals(self, equipment);
+dss = [];
+
+dss.line_bus = cellfun(@(x) x.name, cn, 'uni', 0);
+dss.line_length = 1e-4;
+dss.line_linecode = 'DEFAULT';
+dss.line_phases = 3;
+dss.line_units = 'm';
+
+save_new_line(self, dss);
+
 end
 
 function save_disconnector(self, equipment)
@@ -50,8 +209,3 @@ end
 
 function save_energy_consumer(self, equipment)
 end
-
-
-
-
-

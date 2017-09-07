@@ -1,7 +1,15 @@
 function [ self ] = parse_element_tree( self )
 
-%% Fist find the substation
+% Clear all DSS element counts
+self.dss_ele = [];
 
+% Then clear the OpenDSS output directory
+out_dir_content = dir(fullfile(self.output_dir, '*.dss'));
+for i = 1:length(out_dir_content)
+    delete(fullfile(out_dir_content(i).folder, out_dir_content(i).name));
+end
+
+% To begin parsing, find the substation first
 ss = self.get_elements_by_tag('cim:Substation');
 assert(length(ss) == 1, ...
     'CIMClass:parse_element_tree:substation-count', ...
@@ -65,10 +73,5 @@ while isempty(cn_list) == 0
         end
     end
 end
-
-end
-
-
-function [ cn_new, terminal_equipment ] = save_equipment_begind_terminal( self, terminal )
 
 end
