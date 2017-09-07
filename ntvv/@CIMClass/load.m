@@ -17,7 +17,10 @@ switch ext
             'CIMClass:load:object-not-cim', ...
             ['cim object is not a CIMClass: ' input_path]);
         
-        self = cim;
+        field_names = fieldnames(cim);
+        for i = 1:length(field_names)
+            self.(field_names{i}) = cim.(field_names{i});
+        end
 end
 
 end
