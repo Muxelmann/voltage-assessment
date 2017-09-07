@@ -7,6 +7,10 @@ classdef CIMClass < handle
         ele = {};
         % All elements that will be written into OpenDSS directory
         output_dir = [];
+        % All equipment properties
+        equipments = {};
+        % All OpenDSS Elements
+        dss_ele = [];
     end
     
     properties (Transient = true)
@@ -18,17 +22,24 @@ classdef CIMClass < handle
         function self = CIMClass( output_dir )
             
             if exist('output_dir', 'var') == 1 && exist(output_dir, 'dir') == 0
-                self.output_dir = output_dir;
                 mkdir(output_dir);
+            end
+            
+            if exist(output_dir, 'dir') == 1
+                self.output_dir = output_dir;
             end
             
             self.ele = {};
             self.ele_buffers = [];
+            self.equipments = {};
+            self.dss_ele = [];
         end
         
         save( self )
         
         [ self ] = load( self, input_path )
+        
+        [ self ] = add_equipment( self, csv_file )
         
         [ self ] = add_all_elements( self, xml_file )
         
@@ -53,6 +64,8 @@ classdef CIMClass < handle
         [ element ] = get_cim_element( node );
         
         [ element ] = get_cim_coordinates( node );
+        
+        [ field_name ] = get_fixed_id(string);
     end
     
 end
