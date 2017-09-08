@@ -12,6 +12,7 @@ data = load_data(data_path)
 dss = DSSClass(master_path)
 dss.set_load_shapes(data, True)
 
+dss.reset()
 dss.solve()
 pq, vi = dss.get_monitor_data()
 

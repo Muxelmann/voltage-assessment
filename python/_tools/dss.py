@@ -4,19 +4,24 @@ import numpy as np
 
 class DSSClass:
 
+    _debug_enabled = True
     _startup = False
 
     _load_shapes = []
     _load_shape_interval = 0.5
 
-    def __init__(self, master_path=None):
-        print('> Initialising DSSClass')
+    def __init__(self, master_path=None, debug_enabled=False):
+        self._debug_enabled = debug_enabled
+        if self._debug_enabled is not True:
+            dss.Basic.AllowForms(False)
+
+        self._print('> Initialising DSSClass')
         self._startup = dss.Basic.Start() == 1
         if not self._startup:
             return
-        print('> Initialisation successful')
+        self._print('> Initialisation successful')
 
-        print('> Loading circuit')
+        self._print('> Loading circuit')
         # Only continue if a circuit is passed
         if master_path is None:
             return
@@ -61,6 +66,10 @@ class DSSClass:
             did_start = 'failed'
         return 'DSSClass({})'.format(did_start)
 
+    def _print(self, *args, **kwargs):
+        if self._debug_enabled:
+            print(*args, **kwargs)
+
     def set_load_shapes(self, load_shapes, randomised=False):
         if np.size(load_shapes, 1) < dss.Loads.Count():
             return
@@ -68,8 +77,7 @@ class DSSClass:
         if randomised:
             load_shapes = load_shapes[:, np.random.permutation(np.size(load_shapes, 1))]
 
-        dss.Meters.ResetAll()
-        dss.Monitors.ResetAll()
+        self.reset()
 
         idx = dss.Loads.First()
         while idx > 0:
@@ -85,8 +93,18 @@ class DSSClass:
     def load_count(self):
         return dss.Loads.Count()
 
+    def reset(self):
+        dss.Meters.ResetAll()
+        dss.Monitors.ResetAll()
+
     def solve(self):
         dss.Solution.Solve()
+        converged = dss.Solution.Converged
+        if converged:
+            self._print('> Solution converged')
+        else:
+            self._print('> Solution did not converge')
+        return converged
 
     def get_monitor_data(self):
         idx = dss.Monitors.First()
