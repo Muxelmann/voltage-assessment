@@ -2,20 +2,22 @@ function [ cn, terminals ] = save_opendss_for_equipment( self, equipment )
 %SAVE_OPENDSS_FOR_ELEMENT Saves element to OpenDSS file
 
 switch equipment.tag
-    case 'cim:PowerTransformer'
-        [terminals, cn] = save_power_transformer(self, equipment);
+    case 'cim:ACLineSegment'
+        [terminals, cn] = save_ac_line_segment(self, equipment);
     case 'cim:BusbarSection'
         [terminals, cn] = save_busbar_section(self, equipment);
     case 'cim:Disconnector'
         [terminals, cn] = save_disconnector(self, equipment);
-    case 'cim:Fuse'
-        [terminals, cn] = save_fuse(self, equipment);
-    case 'cim:ACLineSegment'
-        [terminals, cn] = save_ac_line_segment(self, equipment);
-    case 'cim:EnergyServicePoint'
-        [terminals, cn] = save_energy_service_point(self, equipment);
     case 'cim:EnergyConsumer'
         [terminals, cn] = save_energy_consumer(self, equipment);
+    case 'cim:EnergyServicePoint'
+        [terminals, cn] = save_energy_service_point(self, equipment);
+    case 'cim:Fuse'
+        [terminals, cn] = save_fuse(self, equipment);
+    case 'cim:LoadBreakSwitch'
+        [terminals, cn] = save_load_break_switch(self, equipment);
+    case 'cim:PowerTransformer'
+        [terminals, cn] = save_power_transformer(self, equipment);
     otherwise
         [terminals, cn] = get_terminals(self, equipment);
         warning(['No idea how to save ', equipment.tag]);
@@ -291,6 +293,19 @@ dss.line_units = 'm';
 save_new_line(self, dss);
 end
 
+function [terminals, cn] = save_load_break_switch(self, equipment)
+[terminals, cn] = get_terminals(self, equipment);
+dss = [];
+
+dss.line_bus = cellfun(@(x) x.name, cn, 'uni', 0);
+dss.line_length = 1e-4;
+dss.line_linecode = 'DEFAULT';
+dss.line_phases = 3;
+dss.line_units = 'm';
+
+save_new_line(self, dss);
+end
+
 function [terminals, cn] = save_ac_line_segment(self, equipment)
 [terminals, cn] = get_terminals(self, equipment);
 dss = [];
@@ -370,4 +385,13 @@ dss.load_pf = 0.95;
 dss.load_model = 1;
 
 save_new_load(self, dss)
+end
+
+function [terminals, cn] = save_unknown(self, equipment)
+[terminals, cn] = get_terminals(self, equipment);
+dss = [];
+
+% FIXME:
+% - if 2 terminals add dummy line,
+% - if 1 terminal add dummy load add do nothing
 end
