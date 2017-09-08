@@ -13,9 +13,12 @@ end
 
 %% To begin converting, find the substation 
 ss = self.get_elements_by_tag('cim:Substation');
-assert(length(ss) == 1, ...
+assert(isempty(ss) == 0, ...
     'CIMClass:parse_element_tree:substation-count', ...
     [num2str(length(ss)) ' substations found']);
+if length(ss) > 1
+    warning([num2str(length(ss)) ' substations found']);
+end
 ss = ss{1};
 
 % Find connectivity node that is part of substation (i.e. root node)
@@ -30,7 +33,7 @@ ss_cn = ss_cn{1};
 fid = fopen(fullfile(self.output_dir, 'master.dss'), 'a');
 fprintf(fid, [...
     'Clear\n\nSet DefaultBaseFrequency=50.0\n\nNew Circuit.' ss.name ...
-    '\n\nNew Vsource.Source Bus1=' ss_cn.name ...
+    '\n\nEdit Vsource.Source Bus1=' ss_cn.name ...
     ' BasekV=11.0 Frequency=50.0\n\n']);
 fclose(fid);
 
@@ -45,6 +48,7 @@ terminal_old = {};
 
 saved_equipment = {};
 
+tic;
 while isempty(cn_list) == 0
     cn_next = cn_list{1};
     cn_list(1) = [];
@@ -88,19 +92,19 @@ end
 %% Finish by redirecting the master and adding voltage levels
 
 dss_redirect_files = dir(fullfile(self.output_dir, '*.dss'));
-ignore_idx = cellfun(@(x) strcmp(x.name, 'master.dss'), dss_redirect_files);
+ignore_idx = arrayfun(@(x) strcmp(x.name, 'master.dss'), dss_redirect_files);
 dss_redirect_files(ignore_idx) = [];
-ignore_idx = cellfun(@(x) strcmp(x.name, 'buscoords.dss'), dss_redirect_files);
+ignore_idx = arrayfun(@(x) strcmp(x.name, 'buscoords.dss'), dss_redirect_files);
 dss_coordinates = dss_redirect_files(ignore_idx);
 dss_redirect_files(ignore_idx) = [];
 
 fid = fopen(fullfile(self.output_dir, 'master.dss'), 'a');
 for i = 1:length(dss_redirect_files)
     fprintf(fid, ['Redirect ' dss_redirect_files(i).name '\n']);
-    
 end
-fprintf(fid, ['Buscoords ' dss_coordinates.name '\n']);
 fprintf(fid, '\nSet voltagebases=[0.24, 0.4, 11.0]\nCalcvoltagebases\n');
+fprintf(fid, ['\nBuscoords ' dss_coordinates.name '\n']);
+fprintf(fid, '\nset markTransformers=yes\n');
 fclose(fid);
 
 disp('Finished DSS conversion');

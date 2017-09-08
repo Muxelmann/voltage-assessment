@@ -19,9 +19,11 @@ switch equipment.tag
     case 'cim:PowerTransformer'
         [terminals, cn] = save_power_transformer(self, equipment);
     otherwise
-        [terminals, cn] = get_terminals(self, equipment);
-        warning(['No idea how to save ', equipment.tag]);
+        warning(['No idea what ' equipment.tag ' is -> trying to default']);
+        [terminals, cn] = save_unknown(self, equipment);
 end
+
+disp(toc);
 
 end
 
@@ -37,7 +39,6 @@ end
 terminals_oder = cellfun(@(x) str2double(x.sequence_number), terminals);
 terminals = terminals(terminals_oder);
 cn = cn(terminals_oder);
-
 end
 
 function save_new_transformer(self, dss)
@@ -95,6 +96,7 @@ fprintf(fid, [...
     ' Linecode=' dss.line_linecode ...
     ' Length=' num2str(dss.line_length) ...
     ' Phases=' num2str(dss.line_phases) ...
+    ' Units=' dss.line_units ...
     '\n']);
 fclose(fid);
 
@@ -345,14 +347,16 @@ for i = 1:size(equipment.coords, 1)-1
     % Extract pairs of buses for each line segment
     if i == 1
         dss.line_bus = line_bus(1);
-        dss.line_bus{end+1} = [line_bus{1} '_' num2str(i)];
-    elseif i == size(equipment.coords, 1)-1
-        dss.line_bus = {[line_bus{1} '_' num2str(i-1)]};
-        dss.line_bus{end+1} = line_bus{2};
     else
         dss.line_bus = {[line_bus{1} '_' num2str(i-1)]};
+    end
+    
+    if i == size(equipment.coords, 1)-1
+        dss.line_bus{end+1} = line_bus{2};
+    else
         dss.line_bus{end+1} = [line_bus{1} '_' num2str(i)];
     end
+    
     % Scale the segment's length
     dss.line_length = length_scale(i) * line_length;
     % Save the line
@@ -362,14 +366,21 @@ for i = 1:size(equipment.coords, 1)-1
     % Save bus coordiconates
     save_coordinates(self, dss.line_bus, coords)
 end
+
+% dss.line_length = line_length;
+% dss.line_bus = line_bus;
+% save_new_line(self, dss);
+% 
+% coords = [equipment.coords(1, :); equipment.coords(end,:)];
+% save_coordinates(self, dss.line_bus, coords)
 end
 
 function [terminals, cn] = save_energy_service_point(self, equipment)
 [terminals, cn] = get_terminals(self, equipment);
-dss = [];
 
-% Do nothing...
-
+buses = cellfun(@(x) x.name, cn, 'uni', 0);
+coords = equipment.coords;
+save_coordinates(self, buses, coords);
 end
 
 function [terminals, cn] = save_energy_consumer(self, equipment)
@@ -387,11 +398,25 @@ dss.load_model = 1;
 save_new_load(self, dss)
 end
 
+function [terminals, cn] = save_energy_source(self, equipment)
+[terminals, cn] = get_terminals(self, equipment);
+
+end
+
 function [terminals, cn] = save_unknown(self, equipment)
 [terminals, cn] = get_terminals(self, equipment);
-dss = [];
 
-% FIXME:
-% - if 2 terminals add dummy line,
-% - if 1 terminal add dummy load add do nothing
+if length(cn) == 2
+    dss = [];
+    
+    dss.line_bus = cellfun(@(x) x.name, cn, 'uni', 0);
+    dss.line_length = 1e-4;
+    dss.line_linecode = 'DEFAULT';
+    dss.line_phases = 3;
+    dss.line_units = 'm';
+    
+    save_new_line(self, dss);
+elseif length(cn) == 1
+    % probably a marker -> do nothing
+end
 end
