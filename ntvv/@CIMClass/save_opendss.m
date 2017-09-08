@@ -1,4 +1,4 @@
-function [ self ] = parse_element_tree( self )
+function [ self ] = save_opendss( self )
 
 % Clear all DSS element counts
 self.dss_ele = [];
@@ -10,26 +10,31 @@ for i = 1:length(out_dir_content)
     delete(fullfile(out_dir_content(i).folder, out_dir_content(i).name));
 end
 
-% To begin parsing, find the substation first
+
+%% To begin converting, find the substation 
 ss = self.get_elements_by_tag('cim:Substation');
 assert(length(ss) == 1, ...
     'CIMClass:parse_element_tree:substation-count', ...
     [num2str(length(ss)) ' substations found']);
 ss = ss{1};
 
-% Find elememts that belong to the substation
-ss_ele = self.get_elements_by_resource(ss.id);
-% Find connectivity node that is part of substation
-ss_cn = self.get_elements_by_tag('cim:ConnectivityNode', ss_ele);
-
+% Find connectivity node that is part of substation (i.e. root node)
+ss_cn = self.get_elements_by_resource(ss.id, 'cim:ConnectivityNode');
 assert(length(ss_cn) == 1, ...
     'CIMClass:parse_element_tree:substation-connectivity-node', ...
     [num2str(length(ss_cn)) ' connectivity nodes found at substation']);
-
-% Found substation (i.e. root) connectivity node
 ss_cn = ss_cn{1};
 
-%% Step from one connectivity node to the next
+%% Write the beginning of the master file
+
+fid = fopen(fullfile(self.output_dir, 'master.dss'), 'a');
+fprintf(fid, [...
+    'Clear\n\nSet DefaultBaseFrequency=50.0\n\nNew Circuit.' ss.name ...
+    '\n\nNew Vsource.Source Bus1=' ss_cn.name ...
+    ' BasekV=11.0 Frequency=50.0\n\n']);
+fclose(fid);
+
+%% Start the network parsing process
 
 % Initialise CN list
 cn_list = {ss_cn};
@@ -50,9 +55,12 @@ while isempty(cn_list) == 0
     
     if exist('terminal_list', 'var') == 0
         terminal_list = terminal_new;
+    elseif isempty(terminal_list)
+        terminal_list = terminal_new;
     else
         terminal_list = [terminal_list; terminal_new];
     end
+    
     while isempty(terminal_list) == 0
         terminal_next = terminal_list{1};
         terminal_list(1) = [];
@@ -67,12 +75,33 @@ while isempty(cn_list) == 0
         
         cn_new = self.remove_elements_from_set(cn_old, cn_new);
         
-        if exist('cn_list', 'var')
-            cn_list = [cn_list; cn_new];
-        else
+        if exist('cn_list', 'var') == 0
             cn_list = cn_new;
+        elseif isempty(cn_list)
+            cn_list = cn_new;
+        else
+            cn_list = [cn_list; cn_new];
         end
     end
 end
 
+%% Finish by redirecting the master and adding voltage levels
+
+dss_redirect_files = dir(fullfile(self.output_dir, '*.dss'));
+ignore_idx = cellfun(@(x) strcmp(x.name, 'master.dss'), dss_redirect_files);
+dss_redirect_files(ignore_idx) = [];
+ignore_idx = cellfun(@(x) strcmp(x.name, 'buscoords.dss'), dss_redirect_files);
+dss_coordinates = dss_redirect_files(ignore_idx);
+dss_redirect_files(ignore_idx) = [];
+
+fid = fopen(fullfile(self.output_dir, 'master.dss'), 'a');
+for i = 1:length(dss_redirect_files)
+    fprintf(fid, ['Redirect ' dss_redirect_files(i).name '\n']);
+    
+end
+fprintf(fid, ['Buscoords ' dss_coordinates.name '\n']);
+fprintf(fid, '\nSet voltagebases=[0.24, 0.4, 11.0]\nCalcvoltagebases\n');
+fclose(fid);
+
+disp('Finished DSS conversion');
 end

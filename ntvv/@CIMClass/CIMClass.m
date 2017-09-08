@@ -45,8 +45,6 @@ classdef CIMClass < handle
         
         [ self ] = add_all_coordinates( self, xml_file )
         
-        [ self ] = parse_element_tree( self )
-        
         [ ele ] = get_elements_by_tag( self, tag, search_eles )
         
         [ ele ] = get_elements_by_resource( self, res, search_eles )
@@ -56,6 +54,8 @@ classdef CIMClass < handle
         [ ele ] = remove_elements_from_set( self, remove_eles, search_eles )
         
         [ tags ] = get_string( self, search_eles )
+        
+        [ self ] = save_opendss( self )
         
         [ cn, terminals ] = save_opendss_for_equipment( self, equipment )
     end
