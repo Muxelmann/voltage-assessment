@@ -104,7 +104,7 @@ for i = 1:length(dss_redirect_files)
 end
 fprintf(fid, '\nSet voltagebases=[0.24, 0.4, 11.0]\nCalcvoltagebases\n');
 fprintf(fid, ['\nBuscoords ' dss_coordinates.name '\n']);
-fprintf(fid, '\nset markTransformers=yes\n');
+fprintf(fid, '\nSolve\n');
 fclose(fid);
 
 disp('Finished DSS conversion');
