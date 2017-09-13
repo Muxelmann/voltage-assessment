@@ -321,15 +321,21 @@ line_asset = self.get_elements_by_resource(equipment.id, 'cim:Asset');
 % Check if it's overhead (broken into wires) or underground (single cable)
 switch equipment.psr_type
     case 'PSRType_Overhead'
-        assert(length(line_asset) == 2 || length(line_asset) == 4, ...
-            'CIMClass:save_opendss_for_equipment:save_ac_line_segment:no-overhead-asset', ...
-            ['Found ' num2str(length(line_asset)) ' for overhead wire ' equipment.id ' should be 2']);
-        cable_info = self.get_element_by_id(line_asset{1}.asset_info, 'cim:OverheadWireInfo');
+        if length(line_asset) ~= 2 && length(line_asset) ~= 4
+            warning(['Found ' num2str(length(line_asset)) ' for overhead wire ' equipment.id ' should be 2']);
+            cable_info = [];
+            cable_info.name = 'DEFAULT';
+        else
+            cable_info = self.get_element_by_id(line_asset{1}.asset_info, 'cim:OverheadWireInfo');
+        end
     case 'PSRType_Underground'
-        assert(length(line_asset) == 1, ...
-            'CIMClass:save_opendss_for_equipment:save_ac_line_segment:no-underground-asset', ...
-            ['Found ' num2str(length(line_asset)) ' for cable ' equipment.id ' should be 1']);
-        cable_info = self.get_element_by_id(line_asset{1}.asset_info, 'cim:CableInfo');        
+        if length(line_asset) ~= 1
+            warning(['Found ' num2str(length(line_asset)) ' for cable ' equipment.id ' should be 1']);
+            cable_info = [];
+            cable_info.name = 'DEFAULT';
+        else
+            cable_info = self.get_element_by_id(line_asset{1}.asset_info, 'cim:CableInfo');
+        end
     otherwise
         warning(['Unknown PSR type ' equipment.psr_type ' for ' equipment.id]);
         cable_info = [];

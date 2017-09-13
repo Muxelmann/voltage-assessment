@@ -1,10 +1,8 @@
-close all
-clear
-clc
+function cim_converter(cim_export, cim_equipment, output_dir)
 
-cim_export = 'CIM Export 31_03_2017 - confidential/CIM_Export_Binfield';
-cim_equipment = 'Equipment DB - confidential';
-output_dir = 'DSS Export - confidential/Export_Binfield';
+% cim_export = 'CIM Export 31_03_2017 - confidential/CIM_Export_Binfield';
+% cim_equipment = 'Equipment DB - confidential';
+% output_dir = 'DSS Export - confidential/Export_Binfield';
 
 xml_files = dir(fullfile(cim_export, '*.xml'));
 gml_files = dir(fullfile(cim_export, '*.gml'));
@@ -12,7 +10,6 @@ equ_files = dir(fullfile(cim_equipment, '*.csv'));
 
 cim = CIMClass(output_dir);
 
-%%
 for i = 1:length(xml_files)
     xml_path = fullfile(xml_files(i).folder, xml_files(i).name);
     cim.add_all_elements(xml_path);
@@ -30,9 +27,8 @@ for i = 1:length(equ_files)
 end
 cim.save();
 
-%%
+%% Now convert to openDSS
 
 cim.load();
-
-clc
 cim.save_opendss();
+end

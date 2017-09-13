@@ -226,28 +226,32 @@ classdef DSSClass < handle
             end
 
             load_name = 'esmu';
-
+            
+            % Add one load per phase
             for p = 1:3
-                new_load = [load_name '_' num2str(p)];
-                if any(cellfun(@(x) strcmp(x, new_load), self.dss_circuit.Loads.AllNames))
+                new_load_name = [load_name '_' num2str(p)];
+                if any(cellfun(@(x) strcmp(x, new_load_name), self.dss_circuit.Loads.AllNames))
                     command = 'edit';
                 else
                     command = 'new';
                 end
                 phasing = ['.' num2str(p) '.' num2str(neutral)];
-                self.dss_text.Command = [command ' Load.' new_load ' bus1=' bus phasing ' Phases=1 kW=0.0'];
+                self.dss_text.Command = [command ' Load.' new_load_name ' bus1=' bus phasing ' Phases=1 kW=0.0'];
+                self.dss_text.Command = ['new Monitor.mon_' new_load_name '_vi Element=Load.' new_load_name ' Terminal=1 Mode=0 VIpolar=yes'];
+                self.dss_text.Command = ['new Monitor.mon_' new_load_name '_pq Element=Load.' new_load_name ' Terminal=1 Mode=1 Ppolar=no'];
             end
             self.dss_text.Command = ['AddBusMarker Bus=' bus ' code=12 color=Blue size=1'];
-
+            
+            % Add energy meter at ESMU location
             idx = self.dss_circuit.Lines.First;
-            if any(cellfun(@(x) strcmp(x, new_load), self.dss_circuit.Monitors.AllNames))
+            if any(cellfun(@(x) strcmp(x, ['meter_' new_load_name]), self.dss_circuit.Meters.AllNames))
                 command = 'edit';
             else
                 command = 'new';
             end
             while idx > 0
                 if strcmp(self.dss_circuit.Lines.Bus1, bus)
-                    self.dss_circuit.SetActiveBus(bus)
+                    self.dss_circuit.SetActiveBus(bus);
                     self.dss_text.Command = [command ' EnergyMeter.meter_' load_name ' Element=' self.dss_circuit.ActiveElement.Name ' Terminal=1'];
                     break
                 end
@@ -303,6 +307,17 @@ classdef DSSClass < handle
             end
         end
 
+        function [load_phases, load_names] = get_load_phases(self)
+            load_names = self.dss_circuit.Loads.AllNames;
+            load_phases = nan(size(load_names));
+            for i = 1:length(load_names)
+                current_load = load_names{i};
+                self.dss_circuit.SetActiveElement(['Load.' current_load]);
+                bus_info = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
+                load_phases(i) = str2num(bus_info{2});
+            end
+        end
+        
         function down_stream_customers(self)
             load_zones = get_load_meters(self);
 

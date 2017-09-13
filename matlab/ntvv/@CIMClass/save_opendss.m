@@ -32,7 +32,7 @@ ss_cn = ss_cn{1};
 
 fid = fopen(fullfile(self.output_dir, 'master.dss'), 'a');
 fprintf(fid, [...
-    'Clear\n\nSet DefaultBaseFrequency=50.0\n\nNew Circuit.' ss.name ...
+    'Clear\n\nSet DefaultBaseFrequency=50.0\n\nNew Circuit.' strrep(ss.name, ' ', '_') ...
     '\n\nEdit Vsource.Source Bus1=' ss_cn.name ...
     ' BasekV=11.0 Frequency=50.0\n\n']);
 fclose(fid);
@@ -104,7 +104,7 @@ for i = 1:length(dss_redirect_files)
 end
 fprintf(fid, '\nSet voltagebases=[0.24, 0.4, 11.0]\nCalcvoltagebases\n');
 fprintf(fid, ['\nBuscoords ' dss_coordinates.name '\n']);
-fprintf(fid, '\nset markTransformers=yes\n');
+fprintf(fid, '\nSolve\n');
 fclose(fid);
 
 disp('Finished DSS conversion');
