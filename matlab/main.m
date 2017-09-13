@@ -1,4 +1,4 @@
-close all
+% close all
 clear
 
 %% Run basic simulation
@@ -55,10 +55,13 @@ drawnow
 
 profile_reps = 2; % Define the number of profile repetitions
 
+% Use this with ESMU
 rand_load = {[...
     rand(size(actual_load, 1) * profile_reps, dss.get_load_count() - 3)...
     zeros(size(actual_load, 1) * profile_reps, 3) ...
     ]};
+% % Use this without ESMU
+% rand_load = {rand(size(actual_load, 1) * profile_reps, dss.get_load_count())};
 
 rand_load_scale = cell2mat(arrayfun(@(x) repmat(actual_load(:, x), profile_reps, 1) ./ sum(rand_load{end}(:, load_phases == x), 2), 1:3, 'uni', 0));
 for p = 1:3
@@ -83,17 +86,20 @@ while true
     e_std = std(rand_load_error_total);
     
     figure(2);
-    plot(t_reps, rand_load_error_total);
-    ax = gca;
-    hold on
-    line(ax.XLim, ones(2,1) * e_mean, 'Color', 'r');
-    line(ax.XLim, ones(2,1) * e_mean+e_std, 'Color', 'r', 'LineStyle', '--');
-    line(ax.XLim, ones(2,1) * e_mean-e_std, 'Color', 'r', 'LineStyle', '--');
-    hold off
-    xlabel('time (h)');
-    ylabel('power error (kVA)');
-    title(['mean: ' num2str(e_mean) ' | std: ' num2str(e_std)]);
-    drawnow
+    for p = 1:3
+        subplot(1, 3, p);
+        plot(t_reps, rand_load_error_total(:, p));
+        ax = gca;
+        hold on
+        line(ax.XLim, ones(2,1) * e_mean(p), 'Color', 'r');
+        line(ax.XLim, ones(2,1) * e_mean(p)+e_std(p), 'Color', 'r', 'LineStyle', '--');
+        line(ax.XLim, ones(2,1) * e_mean(p)-e_std(p), 'Color', 'r', 'LineStyle', '--');
+        hold off
+        xlabel('time (h)');
+        ylabel('power error (kVA)');
+        title(['mean: ' num2str(e_mean(p)) ' | std: ' num2str(e_std(p))]);
+        drawnow
+    end
     
     i_max = i_max - 1;
     
