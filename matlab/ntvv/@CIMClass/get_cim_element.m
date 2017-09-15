@@ -1,4 +1,5 @@
 function [ ele ] = get_cim_element( node )
+% GET_CIM_ELEMENT retireves and populates the CIM element for a given node
 
 switch char(node.getNodeName)
     case 'cim:Asset'

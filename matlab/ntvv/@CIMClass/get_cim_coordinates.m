@@ -1,5 +1,7 @@
 function [ ele ] = get_cim_coordinates( node )
-
+% GET_CIM_COORDINATES saves the coordinates for a node
+% and aims to append it to the corresponding element
+    
 switch char(node.getNodeName)
     case 'nmm:DeviceMember'
         ele = get_id(node);
