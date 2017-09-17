@@ -2,8 +2,8 @@
 clear
 
 %% Run basic simulation
-dss_master_path = dir('LVTestCase/Master.dss');
-dss_data_dir = dir('Daily_1min_100profiles/*.txt');
+dss_master_path = dir('../LVTestCase/Master.dss');
+dss_data_dir = dir('../Daily_1min_100profiles/*.txt');
 data = [];
 for i = 1:length(dss_data_dir)
     data_new = csvread(fullfile(dss_data_dir(i).folder, dss_data_dir(i).name));

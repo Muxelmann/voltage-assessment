@@ -5,8 +5,8 @@ from _tools import DSSClass
 
 # Run basic simulation
 pwd = os.path.dirname(os.path.realpath(__file__))
-master_path = os.path.abspath(os.path.join(pwd, './LVTestCase/Master.dss'))
-data_path = os.path.abspath(os.path.join(pwd, './Daily_1min_100profiles'))
+master_path = os.path.abspath(os.path.join(pwd, '../LVTestCase/Master.dss'))
+data_path = os.path.abspath(os.path.join(pwd, '../Daily_1min_100profiles'))
 data = load_data(data_path)
 
 dss = DSSClass(master_path)

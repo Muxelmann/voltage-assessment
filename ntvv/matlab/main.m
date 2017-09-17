@@ -2,9 +2,9 @@ close all
 clear
 clc
 
-all_cim_exports = dir(fullfile('CIM Export 31_03_2017 - confidential', 'CIM_Export*'));
-root_output_dir = 'DSS Export - confidential';
-cim_equipment = 'Equipment DB - confidential';
+all_cim_exports = dir(fullfile('..', 'confidential', 'CIM Export 31_03_2017', 'CIM_Export*'));
+root_output_dir = fullfile('..', 'confidential', 'DSS Export');
+cim_equipment = fullfile('..', 'confidential', 'Equipment DB');
 
 for i = 20:length(all_cim_exports)
     disp(all_cim_exports(i).name);
