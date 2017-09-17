@@ -27,6 +27,16 @@ class CIMClass:
 		logger.setup(os.path.join(output_dir, 'CIMClass.log'), )
 		logger.info('CIMClass started')
 
+	def save(self):
+		"""Saves all data in CIMClass so it can be read in again"""
+		# TODO: Implement save() function
+		pass
+
+	def load(self, input_path=None):
+		"""Loads all data from input file, so that XML, GML & DB need not be loaded again"""
+		# TODO: Implement load() functioin
+		pass
+
 	def add_all_elements(self, xml_file):
 		"""Adds all CIM elements in xml_file"""
 
@@ -45,6 +55,16 @@ class CIMClass:
 					logger.warning('an element ({}) was already imported'.format(new_ele['id']))
 					continue
 				self._ele.append(new_ele)
+
+	def add_all_coordinates(self, gml_path):
+		"""Adds coordinates to the corresponding CIM element"""
+		# TODO: Add coordinates to CIM element
+		pass
+
+	def add_equipment(self, equ_path):
+		"""Adds equipment informantion like it is stored in CIM DB"""
+		# TODO: Add equipment information
+		pass
 
 	@staticmethod
 	def get_cim_element(rdf_data):
@@ -223,4 +243,8 @@ class CIMClass:
 			cn = [self.get_element_by_id(ele_id) for ele_id in cn_ids]
 			return cn, terminals
 
-		return get_terminals(self, equipment)
+		cn, terminals = get_terminals(self, equipment)
+
+		# TODO: Convert the equipment to OpenDSS
+
+		return cn, terminals

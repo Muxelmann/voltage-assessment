@@ -25,16 +25,16 @@ for cim_export in cim_exports:
 		xml_path = os.path.join(cim_base_path, cim_export, xml_file)
 		cim.add_all_elements(xml_path)
 
-	# for gml_file in gml_files:
-	# 	gml_path = os.path.join(cim_base_path, cim_export, gml_file)
-	# 	cim.add_all_coordinates(gml_path)
+	for gml_file in gml_files:
+		gml_path = os.path.join(cim_base_path, cim_export, gml_file)
+		cim.add_all_coordinates(gml_path)
 
-	# for equ_file in equ_files:
-	# 	equ_path = os.path.join(equ_base_path, equ_file)
-	# 	cim.add_equipment(equ_path)
+	for equ_file in equ_files:
+		equ_path = os.path.join(equ_base_path, equ_file)
+		cim.add_equipment(equ_path)
 
-	# cim.save()
-	# cim.load()
+	cim.save()
+	cim.load()
 
 	cim.save_opendss()
 
