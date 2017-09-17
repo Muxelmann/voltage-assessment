@@ -1,9 +1,5 @@
 function cim_converter(cim_export, cim_equipment, output_dir)
 
-% cim_export = 'CIM Export 31_03_2017 - confidential/CIM_Export_Binfield';
-% cim_equipment = 'Equipment DB - confidential';
-% output_dir = 'DSS Export - confidential/Export_Binfield';
-
 xml_files = dir(fullfile(cim_export, '*.xml'));
 gml_files = dir(fullfile(cim_export, '*.gml'));
 equ_files = dir(fullfile(cim_equipment, '*.csv'));

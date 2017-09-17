@@ -4,8 +4,8 @@ python:
 install:
   - pip install numpy pandas scipy
 before_script:
-  - cp data.tar.gz python
-  - cd python
+  - cd source
   - tar -xzf data.tar.gz
+  - cd python
 script:
   - python main.py
