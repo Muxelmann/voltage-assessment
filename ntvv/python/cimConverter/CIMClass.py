@@ -264,12 +264,12 @@ class CIMClass:
 		ss_cn = ss_cn[0]
 
 		# Write the beginning of the master file
-		f = open(os.path.join(self._output_dir, 'master.dss'), 'w')
-		f.write('Clear\n\n')
-		f.write('Set DefaultBaseFrequency=50.0\n\n')
-		f.write('New Circuit.{}\n\n'.format(ss['name'].replace(' ', '_')))
-		f.write('Edit Vsource.Source Bus1={} BasekV=11.0 Frequency=50.0\n\n'.format(ss_cn['name']))
-		f.close()
+		with open(os.path.join(self._output_dir, 'master.dss'), 'w') as f:
+			f.write('Clear\n\n')
+			f.write('Set DefaultBaseFrequency=50.0\n\n')
+			f.write('New Circuit.{}\n\n'.format(ss['name'].replace(' ', '_')))
+			f.write('Edit Vsource.Source Bus1={} BasekV=11.0 Frequency=50.0\n\n'.format(ss_cn['name']))
+			f.close()
 
 		# Start the network parsing process
 		cn_list = [ss_cn]
@@ -308,9 +308,23 @@ class CIMClass:
 
 		logger.debug(10 * '-' + ' PARSING DONE ' + 10 * '-')
 
+		# Find all redirect files
+		dss_redirect_files = [f for f in os.listdir(self._output_dir) if f.split('.')[-1] == 'dss']
+		if 'master.dss' in dss_redirect_files:
+			dss_redirect_files.remove('master.dss')
+		if 'buscoords.dss' in dss_redirect_files:
+			dss_redirect_files.remove('buscoords.dss')
+
 		# Finish by adding all files to master
-		f = open(os.path.join(self._output_dir, 'master.dss'), 'a')
-		f.close()
+		with open(os.path.join(self._output_dir, 'master.dss'), 'a') as f:
+			for dss_redirect_file in dss_redirect_files:
+				f.write('Redirect {}\n'.format(dss_redirect_file))
+			f.write('\nSet voltagebases=[0.24, 0.4, 11.0]\nCalcvoltagebases\n')
+			f.write('\nBuscoods {}\n'.format('buscoords.dss'))
+			f.write('\nSolve\n')
+			f.close()
+
+		logger.info('finished converting to DSS')
 
 	def _get_terminals(self, equipment):
 		terminals = self.get_elements_by_resource(equipment['id'], 'Terminal')
@@ -361,12 +375,12 @@ class CIMClass:
 				linecode['emergamps'] = linecode_info['FourthRating']
 			elif 'overhead' in self._equipment.keys() and dss['line_linecode'] in self._equipment['overhead']:
 				linecode_info = self._equipment['overhead'][dss['line_linecode']]
-				# linecode['r1'] = linecode_info[]
-				# linecode['x1'] = linecode_info[]
-				# linecode['r0'] = linecode_info[]
-				# linecode['x0'] = linecode_info[]
-				# linecode['normamps'] = linecode_info[]
-				# linecode['emergamps'] = linecode_info[]
+				linecode['r1'] = linecode_info['PositiveSequenceResistance']
+				linecode['x1'] = linecode_info['PositiveSequenceReactance']
+				linecode['r0'] = linecode_info['ZeroSequenceResistance']
+				linecode['x0'] = linecode_info['ZeroSequenceReactance']
+				linecode['normamps'] = linecode_info['NominalRating']
+				linecode['emergamps'] = linecode_info['FourthRating']
 			else:
 				logger.warning('linecode {} not found, so I\'m using default instead'.format(dss['line_linecode']))
 				linecode['r1'] = 0.4
@@ -442,7 +456,6 @@ class CIMClass:
 		else:
 			logger.error('do not know what to do for {} phases of {}'.format(phase_count, dss['id']))
 
-
 	def _save_new_dss_coordinates(self, buses, coords):
 		if 'buses' not in self._dss_ele.keys():
 			self._dss_ele['buses'] = list()
@@ -463,7 +476,6 @@ class CIMClass:
 
 		cn, terminals = self._get_terminals(equipment)
 
-		# TODO: Convert the equipment to OpenDSS
 		if equipment['tag'] == 'PowerTransformer':
 
 			# Find transformer asset
@@ -521,6 +533,7 @@ class CIMClass:
 			self._save_new_dss_line(dss)
 			if 'coords' in equipment.keys() and len(equipment['coords']) == 2 * len(dss['line_bus']):
 				self._save_new_dss_coordinates(dss['line_bus'], equipment['coords'])
+
 		elif equipment['tag'] == 'ACLineSegment':
 
 			# Get line asset
@@ -611,5 +624,5 @@ class CIMClass:
 
 			# If an element has not yet been defined, flag it up and update code
 			logger.warning('element {} not yet implemented'.format(equipment['tag']))
-			
+
 		return cn, terminals
