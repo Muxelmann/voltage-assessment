@@ -320,7 +320,7 @@ class CIMClass:
 			for dss_redirect_file in dss_redirect_files:
 				f.write('Redirect {}\n'.format(dss_redirect_file))
 			f.write('\nSet voltagebases=[0.24, 0.4, 11.0]\nCalcvoltagebases\n')
-			f.write('\nBuscoods {}\n'.format('buscoords.dss'))
+			f.write('\nBuscoords {}\n'.format('buscoords.dss'))
 			f.write('\nSolve\n')
 			f.close()
 
@@ -328,9 +328,9 @@ class CIMClass:
 
 	def _get_terminals(self, equipment):
 		terminals = self.get_elements_by_resource(equipment['id'], 'Terminal')
-		cn_ids = [t['ConnectivityNode'] for t in terminals]
 		sequence = [int(t['sequenceNumber']) - 1 for t in terminals]
 		terminals = [terminals[i] for i in sequence]
+		cn_ids = [t['ConnectivityNode'] for t in terminals]
 		cn = [self.get_element_by_id(ele_id) for ele_id in cn_ids]
 		return cn, terminals
 
@@ -341,15 +341,15 @@ class CIMClass:
 
 		dss['txfrmr_name'] = 'txfrmr_' + str(len(self._dss_ele['transformer']))
 		with open(os.path.join(self._output_dir, 'transformers.dss'), 'a') as f:
-			f.write('new Transformer.{} windings={} xhl={} basefreq={} sub={}\n'.format(
-				dss['txfrmr_name'], dss['txfrmr_windings'], dss['txfrmr_xhl'], dss['txfrmr_basefreq'], dss['txfrmr_sub']
+			f.write('new Transformer.{} windings={} xhl={} basefreq={:.1f} sub={}\n'.format(
+				dss['txfrmr_name'], dss['txfrmr_windings'], dss['txfrmr_xhl'], float(dss['txfrmr_basefreq']), dss['txfrmr_sub']
 			))
 			for i in range(dss['txfrmr_windings']):
 				dss['wdg_bus'][i] += '.1.2.3'
 				if dss['wdg_conn'][i] in ['w', 'wye']:
 					dss['wdg_bus'][i] += '.0'
 				f.write(' ~ Wdg={} Bus={} Conn={} Kv={} Kva={} rneut={} xneut={}\n'.format(
-					i, dss['wdg_bus'][i], dss['wdg_conn'][i], dss['wdg_kv'][i], dss['wdg_kva'][i], dss['wdg_rneut'][i],
+					i+1, dss['wdg_bus'][i], dss['wdg_conn'][i], dss['wdg_kv'][i], dss['wdg_kva'][i], dss['wdg_rneut'][i],
 					dss['wdg_xneut'][i]
 				))
 			f.close()
@@ -360,7 +360,7 @@ class CIMClass:
 			self._dss_ele['linecode'] = list()
 
 		# Fix the linecode so that OpenDSS can use it
-		dss['line_linecode_fixed'] = re.sub('[^0-9a-zA-Z]+', '_', dss['line_linecode'])
+		dss['line_linecode_fixed'] = 'id_' + re.sub('[^0-9a-zA-Z]+', '_', dss['line_linecode'])
 		if dss['line_linecode_fixed'] not in self._dss_ele['linecode']:
 
 			linecode = dict()
@@ -395,9 +395,9 @@ class CIMClass:
 			linecode['nphases'] = 3
 
 			with open(os.path.join(self._output_dir, 'linecode.dss'), 'a') as f:
-				f.write('New Linecode.{} Nphases={} R1={} X1={} R0={} X0={} Units={} BaseFreq={} Normamps={} Emergamps={}\n'.format(
+				f.write('New Linecode.{} Nphases={} R1={} X1={} R0={} X0={} Units={} BaseFreq={:.1f} Normamps={} Emergamps={}\n'.format(
 					linecode['name'], linecode['nphases'], linecode['r1'], linecode['x1'], linecode['r0'], linecode['x0'],
-					linecode['units'], linecode['basefreq'], linecode['normamps'], linecode['emergamps']
+					linecode['units'], float(linecode['basefreq']), linecode['normamps'], linecode['emergamps']
 				))
 				f.close()
 			self._dss_ele['linecode'].append(dss['line_linecode_fixed'])
