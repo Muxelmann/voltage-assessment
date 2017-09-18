@@ -1,5 +1,6 @@
 import os
 import xml.etree.ElementTree as et
+import csv
 
 from cimConverter import logger
 
@@ -9,7 +10,7 @@ class CIMClass:
 
 	_ele = []
 	_output_dir = None
-	_equipment = []
+	_equipment = {}
 	_dss_ele = []
 	_ele_buffers = []
 
@@ -17,7 +18,7 @@ class CIMClass:
 		"""Initialises the CIMClass with logging enabled"""
 		self._ele = []
 		self._output_dir = None
-		self._equipment = []
+		self._equipment = {}
 		self._dss_ele = []
 
 		if not os.path.exists(output_dir):
@@ -63,8 +64,33 @@ class CIMClass:
 
 	def add_equipment(self, equ_path):
 		"""Adds equipment informantion like it is stored in CIM DB"""
-		# TODO: Add equipment information
-		pass
+
+		if not os.path.exists(equ_path):
+			logger.warning('could not find equipment file: {}'.format(equ_path))
+			return
+
+		_, equ_file_name = os.path.split(equ_path)
+		equ_name = equ_file_name.split('.')[0]
+
+		with open(equ_path, newline='') as equ_file:
+			csv_reader = csv.reader(equ_file, delimiter=',')
+			header = next(csv_reader)
+			# Define the database
+			csv_data = {}
+			for data in csv_reader:
+				csv_data[data[0]] = {}
+				for i in range(1, len(data)):
+					if len(data[i]) == 0:
+						continue
+					csv_data[data[0]][header[i]] = data[i]
+			equ_file.close()
+
+		if equ_name not in self._equipment.keys():
+			self._equipment[equ_name] = csv_data
+		else:
+			for key in csv_data.keys():
+				if key not in self._equipment[equ_name]:
+					self._equipment[equ_name][key] = csv_data[key]
 
 	@staticmethod
 	def get_cim_element(rdf_data):
