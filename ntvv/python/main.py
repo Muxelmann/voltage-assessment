@@ -15,9 +15,9 @@ for cim_export in cim_exports:
 	xml_files = [f for f in os.listdir(os.path.join(cim_base_path, cim_export)) if 'xml' == f.split('.')[-1]]
 	gml_files = [f for f in os.listdir(os.path.join(cim_base_path, cim_export)) if 'gml' == f.split('.')[-1]]
 
-	print(xml_files)
-	print(gml_files)
-	print(equ_files)
+	# print(xml_files)
+	# print(gml_files)
+	# print(equ_files)
 
 	cim = CIMClass(output_path)
 
@@ -37,5 +37,3 @@ for cim_export in cim_exports:
 	cim.load()
 
 	cim.save_opendss()
-
-	break

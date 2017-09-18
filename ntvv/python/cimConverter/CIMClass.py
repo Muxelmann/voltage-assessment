@@ -254,10 +254,16 @@ class CIMClass:
 			return
 		elif len(ss) > 1:
 			logger.warning('{} substations found'.format(len(ss)))
-		ss = ss[0]
+			for s in ss:
+				ss_cn = self.get_elements_by_resource(s['id'], 'ConnectivityNode')
+				if len(ss_cn) > 0:
+					ss = s
+					break
+		else:
+			ss = ss[0]
+			# Find connectivity node that belongs to substation (i.e. root node)
+			ss_cn = self.get_elements_by_resource(ss['id'], 'ConnectivityNode')
 
-		# Find connectivity node that belongs to substation (i.e. root node)
-		ss_cn = self.get_elements_by_resource(ss['id'], 'ConnectivityNode')
 		if len(ss_cn) != 1:
 			logger.error('{} connectivity nodes found for substation'.format(len(ss_cn)))
 			return
@@ -615,7 +621,7 @@ class CIMClass:
 			if 'coords' in equipment.keys():
 				self._save_new_dss_coordinates(dss['load_bus'], equipment['coords'])
 
-		elif equipment['tag'] in ['EnergyServicePoint']:
+		elif equipment['tag'] in ['EnergyServicePoint', 'EnergySource']:
 
 			# All things that need not be used in OpenDSS
 			pass
