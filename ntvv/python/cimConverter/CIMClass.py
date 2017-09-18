@@ -401,6 +401,48 @@ class CIMClass:
 			))
 			f.close()
 
+	def _save_new_dss_load(self, dss):
+		if 'load' not in self._dss_ele.keys():
+			self._dss_ele['load'] = list()
+		self._dss_ele['load'].append(dss['id'])
+
+		# Get sequential load name
+		dss['load_name'] = 'load_' + str(len(self._dss_ele['load']))
+		# Convert phases into proper bus suffix
+		dss['load_phases'] = dss['load_phases'].split('.')[-1]
+		dss['load_phases'] = dss['load_phases'].replace('A', '.1')
+		dss['load_phases'] = dss['load_phases'].replace('B', '.2')
+		dss['load_phases'] = dss['load_phases'].replace('C', '.3')
+		dss['load_phases'] = dss['load_phases'].replace('N', '.0')
+
+		phase_count = sum(p == '.' for p in dss['load_phases'][1:])
+		if phase_count == 1:
+			# Single phase load -> add once
+			dss['load_bus'] += dss['load_phases']
+			dss['load_phases'] = phase_count
+			with open(os.path.join(self._output_dir, 'loads.dss'), 'a') as f:
+				f.write('New Load.{} bus1={} Phases={} Kv={} Kw={} Pf={} Model={}\n'.format(
+					dss['load_name'], dss['load_bus'], dss['load_phases'], dss['load_voltage'],
+					dss['load_power'], dss['load_pf'], dss['load_model']
+				))
+				f.close()
+
+		elif phase_count == 3:
+			# Three phase load -> add three single phase loads
+			load_phases = 1
+			for p in range(phase_count):
+				load_name = dss['load_name'] + '_' + str(p+1)
+				load_bus = dss['load_bus'] + '.' + str(p+1) + '.0'
+				with open(os.path.join(self._output_dir, 'loads.dss'), 'a') as f:
+					f.write('New Load.{} bus1={} Phases={} Kv={} Kw={} Pf={} Model={}\n'.format(
+						load_name, load_bus, load_phases, dss['load_voltage'],
+						dss['load_power'], dss['load_pf'], dss['load_model']
+					))
+					f.close()
+		else:
+			logger.error('do not know what to do for {} phases of {}'.format(phase_count, dss['id']))
+
+
 	def _save_new_dss_coordinates(self, buses, coords):
 		if 'buses' not in self._dss_ele.keys():
 			self._dss_ele['buses'] = list()
@@ -543,6 +585,31 @@ class CIMClass:
 			else:
 				self._save_new_dss_line(dss)
 
+		elif equipment['tag'] == 'EnergyConsumer':
+
+			# Get information
+			dss = dict()
+			dss['id'] = equipment['id']
+			dss['load_name'] = equipment['name']
+			dss['load_bus'] = cn[0]['id']
+			dss['load_phases'] = terminals[0]['phases']
+			dss['load_power'] = 1.0
+			dss['load_voltage'] = 0.23
+			dss['load_pf'] = 0.95
+			dss['load_model'] = 1
+
+			self._save_new_dss_load(dss)
+			if 'coords' in equipment.keys():
+				self._save_new_dss_coordinates(dss['load_bus'], equipment['coords'])
+
+		elif equipment['tag'] in ['EnergyServicePoint']:
+
+			# All things that need not be used in OpenDSS
+			pass
+
 		else:
+
+			# If an element has not yet been defined, flag it up and update code
 			logger.warning('element {} not yet implemented'.format(equipment['tag']))
+			
 		return cn, terminals
