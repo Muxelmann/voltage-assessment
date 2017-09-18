@@ -48,7 +48,7 @@ class CIMClass:
 		rdf_root = xml_data.getroot()
 
 		if rdf_root.tag.split('}')[-1] != 'RDF':
-			logger.warning('no RDF element found for file: {}'.format(os.path.split(xml_file)[-1]))
+			logger.debug('no RDF element found for file: {}'.format(os.path.split(xml_file)[-1]))
 			return
 
 		for rdf_child in rdf_root:
@@ -62,7 +62,7 @@ class CIMClass:
 	def add_all_coordinates(self, gml_path):
 		"""Adds coordinates to the corresponding CIM element"""
 		if not os.path.exists(gml_path):
-			logger.warning('could not find GML file: {}'.format(gml_path))
+			logger.debug('could not find GML file: {}'.format(gml_path))
 			return
 
 		xml_data = et.parse(gml_path)
@@ -74,7 +74,7 @@ class CIMClass:
 
 		for nmm_data in nmm_root:
 			if nmm_data.tag.split('}')[-1] != 'DeviceMember':
-				logger.warning('found unidentified NMM element ({}) in: {}'.format(nmm_data, gml_path))
+				logger.debug('found unidentified NMM element ({}) in: {}'.format(nmm_data, gml_path))
 				continue
 
 			nmm_dev = self.get_nmm_device(nmm_data)
@@ -88,7 +88,7 @@ class CIMClass:
 	@staticmethod
 	def get_nmm_device(nmm_data):
 		if nmm_data[0].tag.split('}')[-1] != 'Device':
-			logger.warning('nmm data for {} does not contain a nmm:Device in'.format(nmm_data))
+			logger.debug('nmm data for {} does not contain a nmm:Device in'.format(nmm_data))
 			return
 
 		nmm_data = nmm_data[0]
@@ -611,7 +611,11 @@ class CIMClass:
 			dss['id'] = equipment['id']
 			dss['load_name'] = equipment['name']
 			dss['load_bus'] = cn[0]['id']
-			dss['load_phases'] = terminals[0]['phases']
+			# Apparently some energy consumers do not have phasing info
+			if 'phases' in terminals[0]:
+				dss['load_phases'] = terminals[0]['phases']
+			else:
+				dss['load_phases'] = 'DummyPhaseCode.ABCN'
 			dss['load_power'] = 1.0
 			dss['load_voltage'] = 0.23
 			dss['load_pf'] = 0.95
