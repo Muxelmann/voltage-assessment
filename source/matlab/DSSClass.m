@@ -339,6 +339,18 @@ classdef DSSClass < handle
 
             self.dss_text.Command = 'plot circuit';
         end
+        
+        function [z1, z0] = get_impedance_at_bus(self, bus_name)
+            bus_ok = self.dss_circuit.SetActiveBus(bus_name);
+            z1 = nan;
+            z0 = nan;
+            if bus_ok <= 0
+                return
+            end
+            self.dss_circuit.ActiveBus.ZscRefresh();
+            z1 = self.dss_circuit.ActiveBus.Zsc1 * [1; 1j];
+            z0 = self.dss_circuit.ActiveBus.Zsc0 * [1; 1j];
+        end
     end
 
 end
