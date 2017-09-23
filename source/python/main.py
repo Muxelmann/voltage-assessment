@@ -5,12 +5,18 @@ from _tools import DSSClass
 
 # Run basic simulation
 pwd = os.path.dirname(os.path.realpath(__file__))
+
 master_path = os.path.abspath(os.path.join(pwd, '../LVTestCase/Master.dss'))
+dss = DSSClass(master_path)
+
+dss.put_load_at_bus('318')
+
 data_path = os.path.abspath(os.path.join(pwd, '../Daily_1min_100profiles'))
 data = load_data(data_path)
-
-dss = DSSClass(master_path)
+data = np.concatenate((data[:, 1:dss.load_count()-3], np.zeros((np.size(data, 0), 3))), 1)
 dss.set_load_shapes(data, True)
+
+phasing = dss.get_load_phases()
 
 dss.reset()
 dss.solve()
