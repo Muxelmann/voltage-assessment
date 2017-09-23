@@ -17,7 +17,8 @@ end
 
 
 % Simulate and determine cost
-dss.set_load_shape(repmat(load_data_scaled, 3, 1));
+dss.set_load_shape(repmat(load_data_scaled, 1, 1));
+dss.reset();
 dss.solve();
 
 [~, vi_rand] = dss.get_monitor_data();
