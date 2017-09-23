@@ -4,31 +4,34 @@ clear
 %% Run basic simulation
 dss_master_path = dir('../LVTestCase/Master.dss');
 dss_data_dir = dir('../Daily_1min_100profiles/*.txt');
-data = [];
-for i = 1:length(dss_data_dir)
-    data_new = csvread(fullfile(dss_data_dir(i).folder, dss_data_dir(i).name));
-    data = [data, data_new];
-end
 
 dss = DSSClass(fullfile(dss_master_path.folder, dss_master_path.name));
-dss.set_load_shape(data);
 
 % Add ESMU
 dss.put_esmu_at_bus('318');
 [load_zones] = dss.get_load_meters();
 [load_phases] = dss.get_load_phases();
 
+% Ser loads
+data = [];
+for i = 1:length(dss_data_dir)
+    data_new = csvread(fullfile(dss_data_dir(i).folder, dss_data_dir(i).name));
+    data = [data, data_new];
+end
+dss.set_load_shape([data(:, 1:dss.get_load_count()-3) zeros(size(data, 1), 3)]);
+
 % dss.down_stream_customers();
 
 [load_distances, load_names] = dss.get_load_distances();
-plot(load_distances, 'x');
-hold on
-arrayfun(@(x) text(x, load_distances(x), load_names{x}, 'Rotation', -60), 1:length(load_distances));
-hold off
+% plot(load_distances, 'x');
+% hold on
+% arrayfun(@(x) text(x, load_distances(x), load_names{x}, 'Rotation', -60), 1:length(load_distances));
+% hold off
 
 %%
 dss.reset(); % Resets all monitors and energy-meters
 dss.solve(); % Solves the time-series
+
 [pq, vi] = dss.get_monitor_data(); % Get monitor's data
 
 actual_load = double(cell2mat(arrayfun(@(x) abs(x.data(:,3:4) * [1; 1j]), pq, 'uni', 0)));
@@ -117,6 +120,8 @@ end
 save('tmp', '-regexp', '^(?!(dss|dss)$).')
 
 %% Now do the voltage matching
+clearvars -except dss
+load('tmp.mat');
 
 % Identify all up stream loads for phase
 loads_up_stream = cell2mat(arrayfun(@(x) load_zones == 1 & load_phases == x, 1:3, 'uni', 0));
@@ -133,7 +138,8 @@ beq = [];
 lb = ones(1, 3) * -1;
 ub = ones(1, 3) * 1;
 fmincon_opt = optimoptions(@fmincon);
-% fmincon_opt.PlotFcns = {@optimplotx, @optimplotfval};
+fmincon_opt.PlotFcns = {@optimplotx, @optimplotfval};
+fmincon_opt.OptimalityTolerance = 1e-4;
 fmincon_opt.Display = 'none';
 fmincon_opt.FiniteDifferenceStepSize = 1e-3;
 
@@ -152,6 +158,42 @@ for t = 1:size(rand_load_next, 1)
     fprintf(' -> DONE\n');
 end
 return
+%% Test if this worked
+
+rand_load_next_test = rand_load_next(isnan(rand_load_next(:, 1)) == 0, :);
+rand_load_last_test = rand_load{end}(1:size(rand_load_next_test, 1), :);
+
+dss.set_load_shape(rand_load_last_test);
+dss.reset();
+dss.solve();
+
+[~, v_sim_1] = dss.get_monitor_data();
+v_sim_1 = double(reshape(cell2mat(arrayfun(@(x) v_sim_1(x).data(:, 3), 1:length(v_sim_1), 'uni', 0)), [], dss.get_load_count()));
+
+dss.set_load_shape(rand_load_next_test);
+dss.reset();
+dss.solve();
+
+[~, v_sim_2] = dss.get_monitor_data();
+v_sim_2 = double(reshape(cell2mat(arrayfun(@(x) v_sim_2(x).data(:, 3), 1:length(v_sim_2), 'uni', 0)), [], dss.get_load_count()));
+
+subplot(2, 1, 1);
+plot(actual_voltages(1:size(v_sim_1, 1), end-2:end), 'b')
+hold on
+plot(v_sim_1(:, end-2:end), 'r');
+plot(v_sim_2(:, end-2:end), 'g');
+hold off
+subplot(2, 1, 2);
+plot(v_sim_1(:, end-2:end) - actual_voltages(1:size(v_sim_1, 1), end-2:end), 'r');
+hold on
+plot(v_sim_2(:, end-2:end) - actual_voltages(1:size(v_sim_2, 1), end-2:end), 'g');
+hold off
+
+%%
+
+imagesc(rand_load_next_test - rand_load{end}(1:size(rand_load_next_test, 1), :))
+colorbar()
+
 %% Now do the voltage matching
 
 % This sort of works, but not all three phases converge; only one or two do
