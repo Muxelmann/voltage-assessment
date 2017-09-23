@@ -104,18 +104,8 @@ classdef DSSClass < handle
                 load_shapes = load_shapes(:, randperm(size(load_shapes, 2)));
             end
             
-            self.reset();
-
-            idx = self.dss_circuit.Loads.First;
-            while idx > 0
-                load_name = self.dss_circuit.Loads.Name;
-                load_mult = load_shapes(:, idx);
-                self.dss_text.Command = ['edit LoadShape.shape_' load_name ' Npts=' num2str(length(load_mult(:))) ' Mult=(' sprintf('%f,', load_mult(1:end-1)) sprintf('%f', load_mult(end)) ')'];
-                idx = self.dss_circuit.Loads.Next;
-            end
-
-            self.dss_circuit.Solution.Mode = 2;
-            self.dss_circuit.Solution.Number = size(load_shapes, 1);
+            % Save load shapes and assign them prior to simulation
+            self.load_shapes = load_shapes(:, 1:self.get_load_count());
         end
 
         function load_count = get_load_count(self)
@@ -128,16 +118,49 @@ classdef DSSClass < handle
         end
         
         function converged = solve(self)
-            self.dss_circuit.Solution.Solve;
-            converged = self.dss_circuit.Solution.Converged;
-            if converged
-                self.disp('> Solution converged');
-            else
-                self.disp('> Solution did not converge');
+        
+            % Based upon load shapes' lengths, do a single snapshot or run
+            % a daily simulation
+            
+            sim_length = size(self.load_shapes, 1);
+            
+            self.dss_circuit.Solution.Mode = 0;
+            for t = 1:sim_length
+                self.dss_circuit.Solution.Hour = floor((t-1) * 60 / 3600);
+                self.dss_circuit.Solution.Seconds = mod((t-1) * 60, 3600);
+                idx = self.dss_circuit.Loads.First;
+                while idx > 0
+                    self.dss_circuit.Loads.kW = self.load_shapes(t, idx);
+                    idx = self.dss_circuit.Loads.Next;
+                end
+                self.dss_circuit.Solution.Solve;
+                self.dss_circuit.Solution.Solve;
+                self.dss_circuit.Monitors.SampleAll;
+%             else
+%                 idx = self.dss_circuit.Loads.First;
+%                 while idx > 0
+%                     load_name = self.dss_circuit.Loads.Name;
+%                     load_mult = self.load_shapes(:, idx);
+%                     self.dss_text.Command = ['edit LoadShape.shape_' load_name ' Npts=' num2str(length(load_mult(:))) ' Mult=(' sprintf('%f,', load_mult(1:end-1)) sprintf('%f', load_mult(end)) ')'];
+%                     idx = self.dss_circuit.Loads.Next;
+%                 end
+%                 
+%                 self.dss_circuit.Solution.Mode = 2;
+%                 self.dss_circuit.Solution.Number = sim_length;
+%                 
+%                 self.dss_circuit.Solution.Solve;
             end
+            
+%             converged = self.dss_circuit.Solution.Converged;
+%             if converged == 1
+%                 self.disp('> Solution converged');
+%             else
+%                 self.disp('> Solution did not converge');
+%             end
         end
 
         function [pq, vi] = get_monitor_data(self)
+            self.dss_circuit.Monitors.SaveAll;
             idx = self.dss_circuit.Monitors.First;
             % Initialise the data_map structure
             pq = []; vi = [];
@@ -237,14 +260,14 @@ classdef DSSClass < handle
                 end
                 phasing = ['.' num2str(p) '.' num2str(neutral)];
                 self.dss_text.Command = [command ' Load.' new_load_name ' bus1=' bus phasing ' Phases=1 kW=0.0'];
-                self.dss_text.Command = ['new Monitor.mon_' new_load_name '_vi Element=Load.' new_load_name ' Terminal=1 Mode=0 VIpolar=yes'];
-                self.dss_text.Command = ['new Monitor.mon_' new_load_name '_pq Element=Load.' new_load_name ' Terminal=1 Mode=1 Ppolar=no'];
+                self.dss_text.Command = [command ' Monitor.mon_' new_load_name '_vi Element=Load.' new_load_name ' Terminal=1 Mode=0 VIpolar=yes'];
+                self.dss_text.Command = [command ' Monitor.mon_' new_load_name '_pq Element=Load.' new_load_name ' Terminal=1 Mode=1 Ppolar=no'];
             end
             self.dss_text.Command = ['AddBusMarker Bus=' bus ' code=12 color=Blue size=1'];
             
             % Add energy meter at ESMU location
             idx = self.dss_circuit.Lines.First;
-            if any(cellfun(@(x) strcmp(x, ['meter_' new_load_name]), self.dss_circuit.Meters.AllNames))
+            if any(cellfun(@(x) strcmp(x, ['meter_' load_name]), self.dss_circuit.Meters.AllNames))
                 command = 'edit';
             else
                 command = 'new';
