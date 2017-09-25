@@ -147,7 +147,8 @@ rand_load_next = nan(size(rand_load{end}));
 for t = 1:size(rand_load_next, 1)
     fprintf('starting: %5d', t);
     rand_load_t = rand_load{end}(t, :);
-    v_actual = actual_voltages(t, end-2:end);
+    t_actual = mod(t-1, size(actual_voltages, 1)) + 1;
+    v_actual = actual_voltages(t_actual, end-2:end);
     [load_scale, ~, exitflag] = fmincon(@(x) cost_voltage_offset(x, rand_load_t, loads_location, dss, v_actual, dss.get_load_count() - [2 1 0]), ...
         zeros(1, 3), A, b, Aeq, beq, lb, ub, [], fmincon_opt);
     
@@ -177,17 +178,33 @@ dss.solve();
 [~, v_sim_2] = dss.get_monitor_data();
 v_sim_2 = double(reshape(cell2mat(arrayfun(@(x) v_sim_2(x).data(:, 3), 1:length(v_sim_2), 'uni', 0)), [], dss.get_load_count()));
 
+v_sim_1_diff = v_sim_1(:, end-2:end) - repmat(actual_voltages(:, end-2:end), profile_reps, 1);
+v_sim_2_diff = v_sim_2(:, end-2:end) - repmat(actual_voltages(:, end-2:end), profile_reps, 1);
+%%
+v_actual_vec = reshape(repmat(actual_voltages(:, end-2:end), profile_reps, 1), [], 1);
+v_sim_1_vec = reshape(v_sim_1(:, end-2:end), [], 1);
+v_sim_2_vec = reshape(v_sim_2(:, end-2:end), [], 1);
+
+figure(3)
+subplot(1, 1, 1);
+plot([v_actual_vec-v_sim_1_vec v_actual_vec-v_sim_2_vec])
+
+%%
+subplot(1, 1, 1);
+boxplot([v_actual_vec(:) - v_sim_1_vec(:), v_actual_vec(:) - v_sim_2_vec(:)])
+%%
 subplot(2, 1, 1);
-plot(actual_voltages(1:size(v_sim_1, 1), end-2:end), 'b')
+plot(repmat(actual_voltages(:, end-2:end), profile_reps, 1), 'b')
 hold on
 plot(v_sim_1(:, end-2:end), 'r');
 plot(v_sim_2(:, end-2:end), 'g');
 hold off
 subplot(2, 1, 2);
-plot(v_sim_1(:, end-2:end) - actual_voltages(1:size(v_sim_1, 1), end-2:end), 'r');
+plot(v_sim_1(:, end-2:end) - repmat(actual_voltages(:, end-2:end), profile_reps, 1), 'r');
 hold on
-plot(v_sim_2(:, end-2:end) - actual_voltages(1:size(v_sim_2, 1), end-2:end), 'g');
+plot(v_sim_2(:, end-2:end) - repmat(actual_voltages(:, end-2:end), profile_reps, 1), 'g');
 hold off
+%%
 
 %%
 

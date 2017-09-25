@@ -133,9 +133,9 @@ classdef DSSClass < handle
                     self.dss_circuit.Loads.kW = self.load_shapes(t, idx);
                     idx = self.dss_circuit.Loads.Next;
                 end
-                self.dss_circuit.Solution.Solve;
-                self.dss_circuit.Solution.Solve;
-                self.dss_circuit.Monitors.SampleAll;
+                self.dss_circuit.Solution.Solve();
+                self.dss_circuit.Solution.Solve();
+                self.dss_circuit.Monitors.SampleAll();
 %             else
 %                 idx = self.dss_circuit.Loads.First;
 %                 while idx > 0
@@ -150,7 +150,7 @@ classdef DSSClass < handle
 %                 
 %                 self.dss_circuit.Solution.Solve;
             end
-            
+            converged = true;
 %             converged = self.dss_circuit.Solution.Converged;
 %             if converged == 1
 %                 self.disp('> Solution converged');
