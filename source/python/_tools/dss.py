@@ -3,7 +3,6 @@ import numpy as np
 
 
 class DSSClass:
-
 	_debug_enabled = True
 	_startup = False
 
@@ -77,7 +76,7 @@ class DSSClass:
 
 	def set_load_shapes(self, load_shapes, randomised=False):
 		"""Sets a loadshape matrix [T x N] of T time steps and N loads"""
-		if np.size(load_shapes, 1) < dss.Loads.Count():
+		if np.size(load_shapes, 1) < self.load_count():
 			return
 
 		if randomised:
@@ -116,7 +115,7 @@ class DSSClass:
 			dss.Solution.Seconds(divmod(t * 60, 3600)[1])
 			idx = dss.Loads.First()
 			while idx > 0:
-				dss.Loads.kW(self._load_shapes[t, idx-1])
+				dss.Loads.kW(self._load_shapes[t, idx - 1])
 				idx = dss.Loads.Next()
 			dss.Solution.Solve()
 			dss.Monitors.SampleAll()
@@ -142,19 +141,23 @@ class DSSClass:
 
 		# Add one load per phase
 		for p in range(3):
-			new_load_name = '{}_{}'.format(load_name, p+1)
+			new_load_name = '{}_{}'.format(load_name, p + 1)
 			if new_load_name in dss.Loads.AllNames():
 				command = 'edit'
 			else:
 				command = 'new'
-			bus_with_phasing = '{}.{}.0'.format(bus_name, p+1)
+			bus_with_phasing = '{}.{}.0'.format(bus_name, p + 1)
 			dss.utils.run_command('{} Load.{} bus1={} Phases=1 kW=0.0'.format(command, new_load_name, bus_with_phasing))
-			dss.utils.run_command('{} Monitor.mon_{}_vi Element=Load.{} Termina=1 Mode=0 VIpolar=yes'.format(command, new_load_name, new_load_name))
-			dss.utils.run_command('{} Monitor.mon_{}_pq Element=Load.{} Termina=1 Mode=1 Ppolar=no'.format(command, new_load_name, new_load_name))
+			dss.utils.run_command(
+				'{} Monitor.mon_{}_vi Element=Load.{} Termina=1 Mode=0 VIpolar=yes'.format(command, new_load_name,
+																						   new_load_name))
+			dss.utils.run_command(
+				'{} Monitor.mon_{}_pq Element=Load.{} Termina=1 Mode=1 Ppolar=no'.format(command, new_load_name,
+																						 new_load_name))
 
 		# Add energy meter at new load
 		new_meter_name = 'meter_{}'.format(load_name)
-		if new_load_name in dss.Meters.AllNames():
+		if new_meter_name in dss.Meters.AllNames():
 			command = 'edit'
 		else:
 			command = 'new'
@@ -163,12 +166,14 @@ class DSSClass:
 		while idx > 0:
 			if dss.Lines.Bus1() == bus_name:
 				print(dss.CktElement.Name())
-				dss.utils.run_command('{} EnergyMeter.{} Element={} Terminal=1'.format(command, new_meter_name, dss.CktElement.Name()))
+				dss.utils.run_command(
+					'{} EnergyMeter.{} Element={} Terminal=1'.format(command, new_meter_name, dss.CktElement.Name()))
 				break
 			idx = dss.Lines.Next()
 		dss.Solution.SolveDirect()
 
 	def get_load_phases(self):
+		"""Returns the phases for each load name"""
 		load_names = dss.Loads.AllNames()
 		load_phases = dict()
 		for load_name in load_names:
@@ -178,3 +183,48 @@ class DSSClass:
 			load_phases[load_name] = int(dss.CktElement.BusNames()[0].split('.')[1])
 
 		return load_phases
+
+	def get_load_meters(self):
+		"""Returns the energy meter to which the corresponding load belongs"""
+		# Obtain all branches that are part of the metered zone
+		meter_names = list()
+		meter_branches = list()
+		idx = dss.Meters.First()
+		while idx > 0:
+			meter_names.append(dss.Meters.Name())
+			meter_branches.append(dss.Meters.AllBranchesInZone())
+			idx = dss.Meters.Next()
+
+		# Find all buses of the branches
+		meter_buses = dict()
+		for i in range(len(meter_names)):
+			buses = list()
+			for conducting_element in meter_branches[i]:
+				dss.Circuit.SetActiveElement(conducting_element)
+				buses_new = dss.CktElement.BusNames()
+				for bus in buses_new:
+					if bus not in buses:
+						buses.append(bus)
+			meter_buses[meter_names[i]] = buses
+
+		# For each load's bus, match which meter it belongs to
+		load_meters = dict()
+		idx = dss.Loads.First()
+		while idx > 0:
+			load_bus = dss.CktElement.BusNames()[0].split('.')[0]
+			for meter_name in meter_buses.keys():
+				if load_bus in meter_buses[meter_name]:
+					load_meters[dss.Loads.Name()] = meter_name
+					continue
+			idx = dss.Loads.Next()
+
+		return load_meters
+
+	def get_load_meter_and_phase(self):
+		load_phases = self.get_load_phases()
+		load_meters = self.get_load_meters()
+
+		load_info = dict()
+		for load_name in load_phases.keys():
+			load_info[load_name] = (load_meters[load_name], load_phases[load_name])
+		return load_info

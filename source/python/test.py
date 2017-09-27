@@ -1,32 +1,17 @@
-import _tools.opendssdirect as dss
-import pandas as pd
+import os
+import numpy as np
+from _tools import load_data
+from _tools import DSSClass
 
-# Read file
-dss.run_command('compile /Users/maxi/Desktop/voltage-assessment/OpenDSSDirect.py/tests/data/13Bus/IEEE13Nodeckt.dss')
-# Add monitor
-# dss.run_command('new Monitor.transformer_vi element=Transformer.Sub Terminal=1 Mode=0')
-# dss.run_command('new Monitor.transformer_pq element=Transformer.Sub Terminal=1 Mode=1')
-# dss.run_command('new Monitor.line_1_vi element=Line.650632 Terminal=1 Mode=0')
-# dss.run_command('new Monitor.line_1_pq element=Line.650632 Terminal=1 Mode=1')
-dss.run_command('new Monitor.load_vi Element=Load.671 Terminal=1 Mode=0')
-dss.run_command('new Monitor.load_pq Element=Load.671 Terminal=1 Mode=1')
-# Solve
+# Run basic simulation
+pwd = os.path.dirname(os.path.realpath(__file__))
 
-idx = dss.Loads.First()
-while idx > 0:
-    dss.Loads.Daily('default')
-    idx = dss.Loads.Next()
+master_path = os.path.abspath(os.path.join(pwd, '../LVTestCase/Master.dss'))
+dss = DSSClass(master_path)
 
-dss.Solution.Mode(1)
-dss.Solution.Solve()
+dss.put_load_at_bus('318')
 
-# Read ByteStream
-assert dss.Monitors.Count() > 0
-idx = dss.Monitors.First()
-while idx > 0:
-    data = dss.Monitors.ByteStream()
-    print(dss.Monitors.Name())
-    print(data.head())
-    print('')
-    idx = dss.Monitors.Next()
-# Returns `pd.DataFrame` with misaligned data
+load_meters = dss.get_load_meter_and_phase()
+print(len(load_meters))
+for key in load_meters.keys():
+	print('{} -> {}'.format(key, load_meters[key]))

@@ -13,7 +13,7 @@ dss.put_load_at_bus('318')
 
 data_path = os.path.abspath(os.path.join(pwd, '../Daily_1min_100profiles'))
 data = load_data(data_path)
-data = np.concatenate((data[:, 1:dss.load_count()-3], np.zeros((np.size(data, 0), 3))), 1)
+data = np.concatenate((data[:, 1:dss.load_count()-2], np.zeros((np.size(data, 0), 3))), 1)
 dss.set_load_shapes(data, True)
 
 phasing = dss.get_load_phases()
