@@ -71,15 +71,24 @@ classdef DSSClass < handle
                 'Could not find first line.');
             line_name = self.dss_circuit.ActiveElement.Name;
             self.dss_text.Command = ['new EnergyMeter.meter_main Element=' line_name ' Terminal=1'];
-
+            
+            % Add a monitor to the transformer (to monitor total power)
+            idx = self.dss_circuit.Transformers.First;
+            while idx > 0
+                txfrmr_name = self.dss_circuit.Transformers.Name;
+                self.dss_text.Command = ['new Monitor.txfrmr_mon_' txfrmr_name '_vi Element=Transformer.' txfrmr_name ' Terminal=1 Mode=0 VIpolar=yes'];
+                self.dss_text.Command = ['new Monitor.txfrmr_mon_' txfrmr_name '_pq Element=Transformer.' txfrmr_name ' Terminal=1 Mode=1 Ppolar=no'];
+                idx = self.dss_circuit.Transformers.Next;
+            end
+            
             % Add monitors and empty loadshapes to loads
             idx = self.dss_circuit.Loads.First;
             while idx > 0
                 load_name = self.dss_circuit.Loads.Name;
-                self.dss_text.Command = ['new Monitor.mon_' load_name '_vi Element=Load.' load_name ' Terminal=1 Mode=0 VIpolar=yes'];
-                self.dss_text.Command = ['new Monitor.mon_' load_name '_pq Element=Load.' load_name ' Terminal=1 Mode=1 Ppolar=no'];
-                self.dss_text.Command = ['new LoadShape.shape_' load_name ' Npts=0 Mult=()'];
-                self.dss_circuit.Loads.Daily = ['shape_' load_name];
+                self.dss_text.Command = ['new Monitor.load_mon_' load_name '_vi Element=Load.' load_name ' Terminal=1 Mode=0 VIpolar=yes'];
+                self.dss_text.Command = ['new Monitor.load_mon_' load_name '_pq Element=Load.' load_name ' Terminal=1 Mode=1 Ppolar=no'];
+                % self.dss_text.Command = ['new LoadShape.shape_' load_name ' Npts=0 Mult=()'];
+                % self.dss_circuit.Loads.Daily = ['shape_' load_name];
                 idx = self.dss_circuit.Loads.Next;
             end
             self.dss_circuit.Solution.SolveDirect();
@@ -159,7 +168,10 @@ classdef DSSClass < handle
 %             end
         end
 
-        function [pq, vi] = get_monitor_data(self)
+        function [pq, vi] = get_monitor_data(self, include_name)
+            if exist('exclude_name', 'var') == 0
+                include_name = 'load_mon_';
+            end
             self.dss_circuit.Monitors.SaveAll;
             idx = self.dss_circuit.Monitors.First;
             % Initialise the data_map structure
@@ -169,6 +181,10 @@ classdef DSSClass < handle
                 byte_stream = self.dss_circuit.Monitors.ByteStream;
                 % Decode the byte stream into a struct of monitor data
                 monitor_data = decode_monitor(self, byte_stream);
+                if contains(monitor_data.name, include_name) == 0
+                    idx = self.dss_circuit.Monitors.Next;
+                    continue
+                end
                 % Add the monitor data to the data array
                 if monitor_data.name(end-1:end) == 'pq'
                     pq = [pq, monitor_data];
@@ -260,8 +276,8 @@ classdef DSSClass < handle
                 end
                 phasing = ['.' num2str(p) '.' num2str(neutral)];
                 self.dss_text.Command = [command ' Load.' new_load_name ' bus1=' bus phasing ' Phases=1 kW=0.0'];
-                self.dss_text.Command = [command ' Monitor.mon_' new_load_name '_vi Element=Load.' new_load_name ' Terminal=1 Mode=0 VIpolar=yes'];
-                self.dss_text.Command = [command ' Monitor.mon_' new_load_name '_pq Element=Load.' new_load_name ' Terminal=1 Mode=1 Ppolar=no'];
+                self.dss_text.Command = [command ' Monitor.load_mon_' new_load_name '_vi Element=Load.' new_load_name ' Terminal=1 Mode=0 VIpolar=yes'];
+                self.dss_text.Command = [command ' Monitor.load_mon_' new_load_name '_pq Element=Load.' new_load_name ' Terminal=1 Mode=1 Ppolar=no'];
             end
             self.dss_text.Command = ['AddBusMarker Bus=' bus ' code=12 color=Blue size=1'];
             
