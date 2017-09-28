@@ -63,17 +63,16 @@ def setup(limit=None):
 	dss.solve()
 	pq, vi = dss.get_monitor_data()
 
-	actual_loads = np.abs(np.array([l['P1 (kW)'].as_matrix() + l['Q1 (kvar)'].as_matrix() for l in pq])).T
-	actual_load = np.array(np.sum(actual_loads, 1), ndmin=2).T
+	actual_loads, actual_voltages = dss.get_load_power_and_voltage()
+	actual_voltages = np.abs(np.array([l['V1'].as_matrix() - l['V2'].as_matrix() for l in vi])).T
 
-	actual_voltages = np.abs(np.array([]))
-	actual_voltage = None
-
-	return dss, actual_load, actual_voltage
+	return dss, actual_loads, actual_voltages
 
 
 if __name__ == '__main__':
 	# First set up everything
-	dss, actual_load, actual_voltage = setup()
+	dss, actual_loads, actual_voltages = setup()
+	# Sum the total load
+	actual_load = np.array(np.sum(actual_loads, 1), ndmin=2).T
 	# Then find the matching random loads
 	matched_load = match_random_load_to(dss, actual_load, 2)
