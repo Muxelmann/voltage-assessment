@@ -148,12 +148,8 @@ class DSSClass:
 				command = 'new'
 			bus_with_phasing = '{}.{}.0'.format(bus_name, p + 1)
 			dss.utils.run_command('{} Load.{} bus1={} Phases=1 kW=0.0'.format(command, new_load_name, bus_with_phasing))
-			dss.utils.run_command(
-				'{} Monitor.mon_{}_vi Element=Load.{} Termina=1 Mode=0 VIpolar=yes'.format(command, new_load_name,
-																						   new_load_name))
-			dss.utils.run_command(
-				'{} Monitor.mon_{}_pq Element=Load.{} Termina=1 Mode=1 Ppolar=no'.format(command, new_load_name,
-																						 new_load_name))
+			dss.utils.run_command('{} Monitor.mon_{}_vi Element=Load.{} Termina=1 Mode=0 VIpolar=yes'.format(command, new_load_name, new_load_name))
+			dss.utils.run_command('{} Monitor.mon_{}_pq Element=Load.{} Termina=1 Mode=1 Ppolar=no'.format(command, new_load_name, new_load_name))
 
 		# Add energy meter at new load
 		new_meter_name = 'meter_{}'.format(load_name)
@@ -165,7 +161,6 @@ class DSSClass:
 		idx = dss.Lines.First()
 		while idx > 0:
 			if dss.Lines.Bus1() == bus_name:
-				print(dss.CktElement.Name())
 				dss.utils.run_command(
 					'{} EnergyMeter.{} Element={} Terminal=1'.format(command, new_meter_name, dss.CktElement.Name()))
 				break
