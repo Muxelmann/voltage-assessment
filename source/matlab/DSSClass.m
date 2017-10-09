@@ -169,7 +169,7 @@ classdef DSSClass < handle
         end
 
         function [pq, vi] = get_monitor_data(self, include_name)
-            if exist('exclude_name', 'var') == 0
+            if exist('include_name', 'var') == 0
                 include_name = 'load_mon_';
             end
             self.dss_circuit.Monitors.SaveAll;
