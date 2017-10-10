@@ -47,16 +47,25 @@ class DSSClass:
 		l_name = dss.CktElement.Name()
 		dss.run_command('new EnergyMeter.mater_main Element={} Terminal=1'.format(l_name))
 
+		idx = dss.Transformers.First()
+		while idx > 0:
+			txfrmr_name = dss.Transformers.Name()
+			dss.run_command(
+				'new Monitor.txfrmr_mon_{}_vi Element=Transformer.{} Terminal=1 Mode=0 VIpolar=yes'.format(txfrmr_name, txfrmr_name))
+			dss.run_command(
+				'new Monitor.txfrmrmon_{}_pq Element=Transformer.{} Terminal=1 Mode=1 Ppolar=no'.format(txfrmr_name, txfrmr_name))
+			idx = dss.Transformers.Next()
+
 		idx = dss.Loads.First()
 		# for load_name in dss.utils.Iterator(dss.Loads, 'Name'):
 		while idx > 0:
 			load_name = dss.Loads.Name()
 			dss.run_command(
-				'new Monitor.mon_{}_vi Element=Load.{} Terminal=1 Mode=0 VIpolar=yes'.format(load_name, load_name))
+				'new Monitor.load_mon_{}_vi Element=Load.{} Terminal=1 Mode=0 VIpolar=yes'.format(load_name, load_name))
 			dss.run_command(
-				'new Monitor.mon_{}_pq Element=Load.{} Terminal=1 Mode=1 Ppolar=no'.format(load_name, load_name))
-			dss.run_command('new LoadShape.shape_{} Npts=0 Mult=()'.format(load_name))
-			dss.Loads.Daily('shape_{}'.format(load_name))
+				'new Monitor.load_mon_{}_pq Element=Load.{} Terminal=1 Mode=1 Ppolar=no'.format(load_name, load_name))
+			# dss.run_command('new LoadShape.shape_{} Npts=0 Mult=()'.format(load_name))
+			# dss.Loads.Daily('shape_{}'.format(load_name))
 			idx = dss.Loads.Next()
 		dss.Solution.SolveDirect()
 		self._original_bus_distances = dss.Circuit.AllBusDistances()
@@ -120,7 +129,7 @@ class DSSClass:
 			dss.Solution.Solve()
 			dss.Monitors.SampleAll()
 
-	def get_monitor_data(self):
+	def get_monitor_data(self, include='load_mon_'):
 		"""Returns all monitors' data"""
 		dss.Monitors.SaveAll()
 		idx = dss.Monitors.First()
@@ -128,7 +137,13 @@ class DSSClass:
 		vi = list()
 		while idx > 0:
 			byte_stream = dss.Monitors.ByteStream()
-			if '_pq' in dss.Monitors.Name():
+			mon_name = dss.Monitors.Name()
+			if include is not None and isinstance(include, str):
+				if include not in mon_name:
+					idx = dss.Monitors.Next()
+					continue
+
+			if '_pq' in mon_name:
 				pq.append(byte_stream)
 			else:
 				vi.append(byte_stream)
@@ -148,12 +163,8 @@ class DSSClass:
 				command = 'new'
 			bus_with_phasing = '{}.{}.0'.format(bus_name, p + 1)
 			dss.utils.run_command('{} Load.{} bus1={} Phases=1 kW=0.0'.format(command, new_load_name, bus_with_phasing))
-			dss.utils.run_command(
-				'{} Monitor.mon_{}_vi Element=Load.{} Termina=1 Mode=0 VIpolar=yes'.format(command, new_load_name,
-																						   new_load_name))
-			dss.utils.run_command(
-				'{} Monitor.mon_{}_pq Element=Load.{} Termina=1 Mode=1 Ppolar=no'.format(command, new_load_name,
-																						 new_load_name))
+			dss.utils.run_command('{} Monitor.load_mon_{}_vi Element=Load.{} Termina=1 Mode=0 VIpolar=yes'.format(command, new_load_name, new_load_name))
+			dss.utils.run_command('{} Monitor.load_mon_{}_pq Element=Load.{} Termina=1 Mode=1 Ppolar=no'.format(command, new_load_name, new_load_name))
 
 		# Add energy meter at new load
 		new_meter_name = 'meter_{}'.format(load_name)
@@ -165,7 +176,6 @@ class DSSClass:
 		idx = dss.Lines.First()
 		while idx > 0:
 			if dss.Lines.Bus1() == bus_name:
-				print(dss.CktElement.Name())
 				dss.utils.run_command(
 					'{} EnergyMeter.{} Element={} Terminal=1'.format(command, new_meter_name, dss.CktElement.Name()))
 				break
@@ -228,3 +238,10 @@ class DSSClass:
 		for load_name in load_phases.keys():
 			load_info[load_name] = (load_meters[load_name], load_phases[load_name])
 		return load_info
+
+	def get_load_power_and_voltage(self):
+		pq, vi = self.get_monitor_data()
+		# pq = [l for l in pq if ]
+		powers = np.abs(np.array([l['P1 (kW)'].as_matrix() + 1j * l['Q1 (kvar)'].as_matrix() for l in pq])).T
+		voltages = np.abs(np.array([l['V1'].as_matrix() - l['V2'].as_matrix() for l in vi])).T
+		return powers, voltages

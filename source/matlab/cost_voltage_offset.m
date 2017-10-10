@@ -1,29 +1,19 @@
-function [ cost, load_data_scaled ] = cost_voltage_offset( scale, load_data, loads_location, dss, voltages, idx )
+function [ cost ] = cost_voltage_offset(phase_percent, loads, loads_location, dss, voltages, idx )
+%COST_VOLTAGE_OFFSET Summary of this function goes here
+%   Detailed explanation goes here
 
-% Adjust load_data and scale down
+adj_load = adjust_load_shapes(phase_percent, loads, loads_location);
 
-% Make sure load_data is only 1 time step
-assert(size(load_data, 1) == 1)
-
-% for each phase, scale down the "down stream load"
-load_data_scaled = nan(size(load_data));
-for p = 1:3
-    load_down_delta = scale(p) .* load_data(:, loads_location(:, p, 2));
-    load_data_scaled(:, loads_location(:, p, 2)) = load_data(:, loads_location(:, p, 2)) - load_down_delta;
-    
-    load_up_scale = 1 + sum(load_down_delta, 2) ./ sum(load_data(:, loads_location(:, p, 1)));
-    load_data_scaled(:, loads_location(:, p, 1)) = load_up_scale .* load_data(:, loads_location(:, p, 1));
-end
-
-
-% Simulate and determine cost
-dss.set_load_shape(repmat(load_data_scaled, 1, 1));
+dss.set_load_shape(adj_load);
 dss.reset();
 dss.solve();
 
-[~, vi_rand] = dss.get_monitor_data();
-v_sim = double(reshape(cell2mat(arrayfun(@(x) vi_rand(x).data(:, 3), 1:length(vi_rand), 'uni', 0)), [], dss.get_load_count()));
+[~, vi] = dss.get_monitor_data('load_mon_');
+v_sim = cell2mat(arrayfun(@(x) x.data(:, 3), vi, 'uni', 0));
 
-cost = sum(abs(v_sim(end, idx) - voltages).^2);
+cost = double(max(abs(v_sim(:, idx) - voltages(:, idx)), [], 2));
+
+
+
 end
 

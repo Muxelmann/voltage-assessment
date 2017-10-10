@@ -32,11 +32,10 @@ dss.set_load_shape([data(:, 1:dss.get_load_count()-3) zeros(size(data, 1), 3)]);
 dss.reset(); % Resets all monitors and energy-meters
 dss.solve(); % Solves the time-series
 
-[pq, vi] = dss.get_monitor_data(); % Get monitor's data
+[pq, ~] = dss.get_monitor_data('txfrmr_mon_'); % Get monitor's data
+actual_load = abs(double(cell2mat(arrayfun(@(x) pq.data(:, (x*2)-1+2) + 1j*pq.data(:, (x*2)+2), 1:3, 'uni', 0))));
 
-actual_load = double(cell2mat(arrayfun(@(x) abs(x.data(:,3:4) * [1; 1j]), pq, 'uni', 0)));
-actual_load = cell2mat(arrayfun(@(x) sum(actual_load(:, load_phases == x), 2), 1:3, 'uni', 0));
-
+[~, vi] = dss.get_monitor_data('load_mon_'); % Get monitor's data
 actual_voltages = double(reshape(cell2mat(arrayfun(@(x) vi(x).data(:, 3), 1:length(vi), 'uni', 0)), [], dss.get_load_count()));
 
 figure(1);
@@ -54,6 +53,11 @@ hold off
 ylabel('voltage (V)');
 drawnow
 
+%% Calculate a random load that has the same power profile n times
+profile_reps = 2; % Define the number of profile repetitions
+[ rand_load ] = match_random_load( profile_reps, actual_load, dss, true );
+
+return
 %% Generate random loads that have the same power profile n times
 
 profile_reps = 2; % Define the number of profile repetitions
@@ -118,7 +122,7 @@ while true
 end
 
 save('tmp', '-regexp', '^(?!(dss|dss)$).')
-
+return
 %% Now do the voltage matching
 clearvars -except dss
 load('tmp.mat');
