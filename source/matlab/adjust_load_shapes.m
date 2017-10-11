@@ -1,21 +1,34 @@
-function [ load_shape_new ] = adjust_load_shapes( phase_percent, load_shape, loads_location )
-%ADJUST_LOAD_SHAPES Summary of this function goes here
-%   Detailed explanation goes here
+function [ load_new ] = adjust_load_shapes( load_proportion, load, dss )
+%ADJUST_LOAD_SHAPES Assigns load proportion to upper and lower energy zone
 
-load_shape_new = nan(size(load_shape));
-
-for p = 1:3
-    load_up_down = {...
-        load_shape(:, loads_location(:, p, 1)), ...
-        load_shape(:, loads_location(:, p, 2))};
-    
-    rand_frac = {...
-        load_up_down{1} ./ sum(load_up_down{1}, 2), ...
-        load_up_down{2} ./ sum(load_up_down{2}, 2)};
-    
-    load_shape_new(:, loads_location(:, p, 1)) = rand_frac{1} .* sum(sum(load_up_down{1}, 2) + sum(load_up_down{2}, 2)) .* phase_percent(p);
-    load_shape_new(:, loads_location(:, p, 2)) = rand_frac{2} .* sum(sum(load_up_down{1}, 2) + sum(load_up_down{2}, 2)) .* (1-phase_percent(p));
+if size(load_proportion, 1) > 1 && size(load, 1) > 1
+    load_new = arrayfun(@(x) adjust_load_shapes(load_proportion(x, :), load(x, :), dss), 1:size(load, 1), 'uni', 0);
+    load_new = cell2mat(load_new.');
+    return
 end
+
+assert(size(load_proportion, 1) == 1 && size(load, 1) == 1);
+
+% Get the load locations
+load_location = dss.get_load_location();
+
+% Map load proportion
+load_proportion = reshape(load_proportion, 1, size(load_location, 2), size(load_location, 3));
+load_proportion = repmat(load_proportion, size(load_location, 1), 1, 1);
+
+% Find the fraction of load that is consumed by each load within its energy
+% zone and phase
+load_frac = repmat(load(:), 1, size(load_location, 2), size(load_location, 3));
+load_frac(load_location == 0) = 0;
+load_total = repmat(sum(load_frac, 1), size(load_location, 1), 1, 1);
+load_frac = load_frac ./ load_total;
+
+% Find the total load per phase
+load_total = repmat(sum(load_total, 3), 1, 1, size(load_location, 3));
+
+% Multiply with load proportion to get new but correctly scaled
+load_new = load_frac .* load_total .* load_proportion;
+load_new = sum(sum(load_new, 3), 2).';
 
 end
 

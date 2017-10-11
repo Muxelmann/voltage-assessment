@@ -11,6 +11,7 @@ classdef DSSClass < handle
         load_shapes = []
 
         original_bus_distances = []
+        load_location = [];
     end
 
     methods
@@ -355,6 +356,35 @@ classdef DSSClass < handle
                 bus_info = strsplit(self.dss_circuit.ActiveElement.BusNames{1}, '.');
                 load_phases(i) = str2num(bus_info{2});
             end
+        end
+        
+        function [load_location] = get_load_location(self, recompute)
+            
+            if exist('recompute', 'var') == 0
+                recompute = false;
+            end
+            
+            load_location = self.load_location;
+            if isempty(load_location) == 0 && recompute == 0
+                return
+            end
+            
+            load_zones = self.get_load_meters();
+            load_zones = accumarray([(1:length(load_zones)).' load_zones], 1);
+            load_phases = self.get_load_phases();
+            load_phases = accumarray([(1:length(load_phases)).' load_phases], 1);
+            
+            for i = 1:size(load_zones, 2)
+                load_zone = load_phases & load_zones(:, i);
+                
+                if i == 1
+                    load_location = load_zone;
+                else
+                    load_location = cat(3, load_location, load_zone);
+                end
+            end
+            
+            self.load_location = load_location;
         end
         
         function down_stream_customers(self)

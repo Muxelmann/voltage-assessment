@@ -1,163 +1,92 @@
 close all
 clear
+addpath('tools/');
+
+load tmp
 
 % Run basic simulation
 dss_master_path = dir('../LVTestCase/Master.dss');
 dss_data_dir = dir('../Daily_1min_100profiles/*.txt');
 
-dss = DSSClass(fullfile(dss_master_path.folder, dss_master_path.name));
+[dss, ~] = setup_dss(dss_master_path, '318', dss_data_dir);
 
-% Add ESMU
-dss.put_esmu_at_bus('318');
-[load_zones] = dss.get_load_meters();
-[load_phases] = dss.get_load_phases();
-
-% Ser loads
-data = [];
-for i = 1:length(dss_data_dir)
-    data_new = csvread(fullfile(dss_data_dir(i).folder, dss_data_dir(i).name));
-    data = [data, data_new];
-end
-
-data = data(1:10,1:dss.get_load_count()-3);
-dss.set_load_shape([data zeros(size(data, 1), 3)]);
-
-[load_distances, load_names] = dss.get_load_distances();
-
-dss.reset(); % Resets all monitors and energy-meters
-dss.solve(); % Solves the time-series
-
-[pq, ~] = dss.get_monitor_data('txfrmr_mon_'); % Get monitor's data
-
-actual_load = abs(double(cell2mat(arrayfun(@(x) pq.data(:, (x*2)-1+2) + 1j*pq.data(:, (x*2)+2), 1:3, 'uni', 0))));
-% actual_load = cell2mat(arrayfun(@(x) sum(actual_load(:, load_phases == x), 2), 1:3, 'uni', 0));
-
-[~, vi] = dss.get_monitor_data('load_mon_'); % Get monitor's data
-actual_voltages = double(reshape(cell2mat(arrayfun(@(x) vi(x).data(:, 3), 1:length(vi), 'uni', 0)), [], dss.get_load_count()));
-
-profile_reps = 1; % Define the number of profile repetitions
-
-% Use this with ESMU
-rand_load = {[...
-    rand(size(actual_load, 1) * profile_reps, dss.get_load_count() - 3)...
-    zeros(size(actual_load, 1) * profile_reps, 3) ...
-    ]};
-% % Use this without ESMU
-% rand_load = {rand(size(actual_load, 1) * profile_reps, dss.get_load_count())};
-
-rand_load_scale = cell2mat(arrayfun(@(x) repmat(actual_load(:, x), profile_reps, 1) ./ sum(rand_load{end}(:, load_phases == x), 2), 1:3, 'uni', 0));
-for p = 1:3
-    rand_load{end}(:, load_phases == p) = rand_load{end}(:, load_phases == p) .* rand_load_scale(:, p);
-end
-
-i_max = 100; % Stop after `i_max` iterations
-t_reps = (1:size(rand_load{end}, 1)) / 60;
-while true
-    % run this random profile
-    dss.set_load_shape(rand_load{end});
-    dss.solve();
-    
-    [pq_rand, ~] = dss.get_monitor_data('txfrmr_mon_');
-    
-    % Calculate the error from running this random profile
-    rand_load_result = abs(double(cell2mat(arrayfun(@(x) pq_rand.data(:, (x*2)-1+2) + 1j*pq_rand.data(:, (x*2)+2), 1:3, 'uni', 0))));
-    
-    rand_load_error_total = rand_load_result - repmat(actual_load, profile_reps, 1);
-    e_mean = mean(rand_load_error_total);
-    e_std = std(rand_load_error_total);
-    
-    disp(['mean: ' num2str(e_mean(p)) ' | std: ' num2str(e_std(p))]);
-    
-    i_max = i_max - 1;
-    
-    if i_max < 0 || (all(round(abs(e_mean+e_std)*1000) == 0) && all(round(abs(e_mean-e_std)*1000) == 0))
-        break
-    end
-    
-    rand_load_next = nan(size(rand_load{end}));
-    for p = 1:3
-        rand_load_next(:, load_phases == p) = rand_load{end}(:, load_phases == p) - rand_load_error_total(:, p) .* rand_load{end}(:, load_phases == p) ./ sum(rand_load{end}(:, load_phases == p), 2);
-    end
-    rand_load{end+1} = rand_load_next;
-end
 
 % Stop here
 % return
 
 %% Assess the voltages
 
-dss.set_load_shape(rand_load{end});
-dss.solve();
-[~, vi_rand] = dss.get_monitor_data('load_mon_');
-rand_voltages = cell2mat(arrayfun(@(x) x.data(:, 3), vi_rand, 'uni', 0));
+rand_load_v = rand_load(end);
 
-plot(rand_voltages(:, end-2), 'r-');
-hold on
-plot(rand_voltages(:, end-1), 'r--');
-plot(rand_voltages(:, end), 'r:');
-plot(actual_voltages(:, end-2), 'b-');
-plot(actual_voltages(:, end-1), 'b--');
-plot(actual_voltages(:, end), 'b:');
-hold off
+[~, rand_voltages] = solve_dss(dss, rand_load_v{end});
 
 rand_voltages_error = rand_voltages - repmat(actual_voltages, profile_reps, 1);
 rand_voltages_error = rand_voltages_error(:, end-2:end);
 
+plot(rand_voltages_error);
+
+% %% Test adjustment
+% 
+% adj_data = repmat(data(1, :), 100, 1);
+% adj_proportion = ones(100, 6) * 0.5;
+% adj_proportion(:, 1) = linspace(0, 1, 100);
+% adj_proportion(:, 4) = 1 - adj_proportion(:, 1);
+% adj_data_2 = adjust_load_shapes(adj_proportion, adj_data, dss); 
+
 %%
 
-% Identify all up stream loads for phase
-loads_up_stream = cell2mat(arrayfun(@(x) load_zones == 1 & load_phases == x, 1:3, 'uni', 0));
-% Identify all down stream loads for phase
-loads_down_stream = cell2mat(arrayfun(@(x) load_zones == 2 & load_phases == x, 1:3, 'uni', 0));
-% Make a load location vector
-loads_location = cat(3, loads_up_stream, loads_down_stream);
-
-%%
+load_location = dss.get_load_location(true);
 
 % Define fmincon parameters
 A = [];
 b = [];
-Aeq = [];
-beq = [];
-lb = zeros(1, 3);
-ub = ones(1, 3) * 1;
+Aeq = repmat(eye(size(load_location, 2)), 1, size(load_location, 3));
+beq = ones(size(load_location, 2), 1);
+lb = zeros(1, size(load_location, 2) * size(load_location, 3));
+ub = ones(1, size(load_location, 2) * size(load_location, 3));
+
+x0 = ones(1, size(load_location, 2) * size(load_location, 3)) * 0.5;
+
 fmincon_opt = optimoptions(@fmincon);
 fmincon_opt.PlotFcns = {@optimplotx, @optimplotfval};
 fmincon_opt.OptimalityTolerance = 1e-4;
 fmincon_opt.Display = 'none';
 fmincon_opt.FiniteDifferenceStepSize = 1e-3;
 
-rand_load_next = rand_load{end};
+rand_load_next = rand_load_v{end};
 for t = 1:size(rand_load_next, 1)
     fprintf('starting: %5d', t);
-    rand_load_t = rand_load{end}(t, :);
+    rand_load_t = rand_load_v{end}(t, :);
     t_actual = mod(t-1, size(actual_voltages, 1)) + 1;
     v_actual = actual_voltages(t_actual, :);
-    [rand_load_adj, ~, exitflag] = fmincon(@(x) cost_voltage_offset(x, rand_load_t, loads_location, dss, v_actual, dss.get_load_count() - [2 1 0]), ...
-        ones(1, 3)*0.5, A, b, Aeq, beq, lb, ub, [], fmincon_opt);
+    [rand_load_adj, ~, exitflag] = fmincon(@(x) cost_voltage_offset(x, rand_load_t, dss, v_actual, dss.get_load_count() - [2 1 0]), ...
+        x0, A, b, Aeq, beq, lb, ub, [], fmincon_opt);
     
+    % Check that the solver exited correctly
     assert(exitflag > 0);
+    % Make sure all loads are balanced
+    assert(all(sum(reshape(rand_load_adj, size(load_location, 2), size(load_location, 3)), 2) == 1));
     
-    rand_load_next(t, :) = adjust_load_shapes(rand_load_adj, rand_load_t, loads_location);
+    rand_load_next(t, :) = adjust_load_shapes(rand_load_adj, rand_load_t, dss);
     fprintf(' -> DONE\n');
 end
 %%
 
 for t = 1:size(rand_load_test, 1)
-    rand_load_test(t, :) = adjust_load_shapes([t/100 t/100 t/100], rand_load_test(t, :), loads_location);
+    rand_load_test(t, :) = adjust_load_shapes([t/100 t/100 t/100], rand_load_test(t, :), load_location);
 end
 
 % p = 1;
-% rand_load_up = rand_load_test(:, loads_location(:, p, 1));
-% rand_load_down = rand_load_test(:, loads_location(:, p, 2));
+% rand_load_up = rand_load_test(:, load_location(:, p, 1));
+% rand_load_down = rand_load_test(:, load_location(:, p, 2));
 % rand_load_up_down = sum(rand_load_up, 2) + sum(rand_load_down, 2);
 % rand_load_up_frac = rand_load_up ./ sum(rand_load_up, 2);
 % rand_load_down_frac = rand_load_down ./ sum(rand_load_down, 2);
 % 
 % % rand_load_total = sum(rand_load_test, 2);
 % 
-% rand_load_test(:, loads_location(:, p, 1)) = rand_load_up_frac .* rand_load_up_down .* linspace(0, 1, 100).';
-% rand_load_test(:, loads_location(:, p, 2)) = rand_load_down_frac .* rand_load_up_down .* linspace(1, 0, 100).';
+% rand_load_test(:, load_location(:, p, 1)) = rand_load_up_frac .* rand_load_up_down .* linspace(0, 1, 100).';
+% rand_load_test(:, load_location(:, p, 2)) = rand_load_down_frac .* rand_load_up_down .* linspace(1, 0, 100).';
 
 dss.set_load_shape(rand_load_test);
 dss.solve()
@@ -175,7 +104,7 @@ loads_up_stream = cell2mat(arrayfun(@(x) load_zones == 1 & load_phases == x, 1:3
 % Identify all down stream loads for phase
 loads_down_stream = cell2mat(arrayfun(@(x) load_zones == 2 & load_phases == x, 1:3, 'uni', 0));
 % Make a load location vector
-loads_location = cat(3, loads_up_stream, loads_down_stream);
+load_location = cat(3, loads_up_stream, loads_down_stream);
 
 % Define fmincon parameters
 A = [];
@@ -198,12 +127,12 @@ for t = 1:size(rand_load_next, 1)
     rand_load_t = rand_load{end}(t, :);
     t_actual = mod(t-1, size(actual_voltages, 1)) + 1;
     v_actual = actual_voltages(t_actual, :);
-    [load_scale, ~, exitflag] = fmincon(@(x) cost_voltage_offset(x, rand_load_t, loads_location, dss, v_actual, dss.get_load_count() - [2 1 0]), ...
+    [load_scale, ~, exitflag] = fmincon(@(x) cost_voltage_offset(x, rand_load_t, load_location, dss, v_actual, dss.get_load_count() - [2 1 0]), ...
         zeros(1, 3), A, b, Aeq, beq, lb, ub, [], fmincon_opt);
     
     assert(exitflag > 0);
     
-    [rand_load_cost(t), load_data_scaled, v_sim_2_cell{t}] = cost_voltage_offset(load_scale, rand_load_t, loads_location, dss, v_actual, dss.get_load_count() - [2 1 0]);
+    [rand_load_cost(t), load_data_scaled, v_sim_2_cell{t}] = cost_voltage_offset(load_scale, rand_load_t, load_location, dss, v_actual, dss.get_load_count() - [2 1 0]);
     rand_load_next(t, :) = load_data_scaled;
     fprintf(' -> DONE\n');
 end
