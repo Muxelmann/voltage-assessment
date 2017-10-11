@@ -37,13 +37,17 @@ while true
     rand_load_error_total = rand_load_result - repmat(actual_load, profile_reps, 1);
     e_mean = mean(rand_load_error_total);
     e_std = std(rand_load_error_total);
+    e_min = min(rand_load_error_total);
+    e_max = max(rand_load_error_total);
     
     figure(2);
     for p = 1:3
         subplot(1, 3, p);
-        plot(t_reps, rand_load_error_total(:, p));
+        plot(t_reps, rand_load_error_total(:, p), 'Color', 'b');
         ax = gca;
         hold on
+        line(ax.XLim, ones(2,1) * e_max(p), 'Color', 'b', 'LineStyle', '--');
+        line(ax.XLim, ones(2,1) * e_min(p), 'Color', 'b', 'LineStyle', '--');
         line(ax.XLim, ones(2,1) * e_mean(p), 'Color', 'r');
         line(ax.XLim, ones(2,1) * e_mean(p)+e_std(p), 'Color', 'r', 'LineStyle', '--');
         line(ax.XLim, ones(2,1) * e_mean(p)-e_std(p), 'Color', 'r', 'LineStyle', '--');
@@ -56,7 +60,7 @@ while true
     
     i_max = i_max - 1;
     
-    if i_max < 0 || (all(round(abs(e_mean+e_std)*1000) == 0) && all(round(abs(e_mean-e_std)*1000) == 0))
+    if i_max < 0 || (all(round(abs(e_max)*1000) == 0) && all(round(abs(e_min)*1000) == 0))
         break
     end
     

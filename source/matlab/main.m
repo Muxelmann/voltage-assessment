@@ -15,29 +15,24 @@ data(1, end-2:end) = 0;
 
 [actual_load, actual_voltages] = solve_dss(dss, data);
 
-% figure(1);
-% yyaxis left
-% plot((1:size(data, 1))/60, actual_load)
-% 
-% yyaxis right
-% plot((1:size(data, 1))/60, mean(actual_voltages, 2));
-% ylabel('power (kVA)');
-% xlabel('time (h)');
-% hold on
-% plot((1:size(data, 1))/60, max(actual_voltages, [], 2));
-% plot((1:size(data, 1))/60, min(actual_voltages, [], 2));
-% hold off
-% ylabel('voltage (V)');
-% drawnow
-
 %% Generate random loads that has the same power profile n times
-profile_reps = 10; % Define the number of profile repetitions
-[ rand_load ] = match_random_load( profile_reps, actual_load, dss, true );
 
-save tmp
+profile_reps = 10; % Define the number of profile repetitions
+rand_load = match_random_load(profile_reps, actual_load, dss, true);
+
+save tmp_p
 
 %% Match random loads to voltages
 
 idx = dss.get_load_count() - [2 1 0]; % Voltages that should be matched
-[ rand_load_v ] = match_random_voltage( rand_load, actual_voltages, idx, dss );
+rand_load_final = match_random_voltage(rand_load, actual_voltages, idx, dss);
+
+save tmp_v
+
+%% Test how well the solution converged
+
+test_pass = convergence_test(rand_load_final, actual_load, actual_voltages, idx, dss);
+assert(test_pass, 'Solution not converged for both P and V');
+clear test_pass
+
 

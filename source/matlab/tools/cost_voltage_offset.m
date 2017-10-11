@@ -5,7 +5,7 @@ function [ cost ] = cost_voltage_offset(load_proportion, loads, dss, voltages, i
 adj_load = adjust_load_shapes(load_proportion, loads, dss);
 [~, v_sim] = solve_dss(dss, adj_load);
 
-cost = max(abs(v_sim(:, idx) - voltages(:, idx)), [], 2);
+cost = sum(abs(v_sim(:, idx) - voltages(:, idx)), 2);
 
 end
 
