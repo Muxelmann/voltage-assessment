@@ -7,7 +7,7 @@ function [ test_pass ] = convergence_test( data, actual_load, actual_voltages, i
 load_error = ss_power - actual_load;
 voltage_error = load_voltages(:, idx) - actual_voltages(:, idx);
 
-test_pass = all(abs(voltage_error(:)) < 0.1) & all(abs(load_error(:)) < 1e-3);
+test_pass = all(abs(voltage_error) < 0.1, 2) & all(abs(load_error) < 1e-3, 2);
 
 end
 
