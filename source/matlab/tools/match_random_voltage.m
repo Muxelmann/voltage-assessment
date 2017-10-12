@@ -31,8 +31,9 @@ fmincon_opt.MaxFunctionEvaluations = 7.5e3;
 
 rand_load_next = rand_load{end};
 adjust_tol = 1e5;
-for t = 1:size(rand_load_next, 1)
-    fprintf('starting: %5d', t);
+t_final = size(rand_load_next, 1);
+for t = 1:t_final
+    fprintf('starting: %5d of %5d', t, t_final);
     rand_load_t = rand_load_next(t, :);
     t_actual = mod(t-1, size(actual_voltages, 1)) + 1;
     v_actual = actual_voltages(t_actual, :);
@@ -51,7 +52,7 @@ for t = 1:size(rand_load_next, 1)
     assert(round((sum(rand_load_t_next) - sum(rand_load_t)) * 1e9) == 0);
     
     rand_load_next(t, :) = rand_load_t_next;
-    fprintf(' -> DONE (%.2fs with %f error)\n', t_elapsed, fval);
+    fprintf(' -> took %.2fs with %f error\n', t_elapsed, fval);
 end
 
 end

@@ -35,6 +35,7 @@ end
 i_remain = 100; % Stop after `i_max` iterations
 t_reps = (1:size(rand_load{end}, 1)) / 60;
 print_string = '';
+tic;
 while true
     % simulate and get network load
     [rand_load_result, ~] = solve_dss(dss, rand_load{end});
@@ -63,12 +64,12 @@ while true
             xlabel('time (h)');
             ylabel('power error (kVA)');
             title(['mean: ' num2str(e_mean(p)) ' | std: ' num2str(e_std(p))]);
-            h.Name = ['remaining iterations: ' num2str(i_remain)];
+            h.Name = ['remaining iterations: ' num2str(i_remain) '; ' num2str(toc) 's'];
             drawnow
         end
     else
         fprintf(repmat('\b', 1, length(print_string)));
-        print_string = ['Iterations remaining: ' num2str(i_remain) newline];
+        print_string = sprintf('Iterations remaining: %i (%.2fs)\n', i_remain, toc);
         fprintf('%s', print_string);
     end
     
