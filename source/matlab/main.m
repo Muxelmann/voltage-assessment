@@ -1,6 +1,8 @@
 close all
 clear
 
+fprintf('\n\n---- START ----\n');
+
 addpath('tools/');
 
 %% Run basic simulation
@@ -21,7 +23,7 @@ clear max_idx;
 
 %% Generate random loads that has the same power profile n times
 
-profile_reps = 2; % Define the number of profile repetitions
+profile_reps = 10; % Define the number of profile repetitions
 [rand_load, i_remain] = match_random_load(profile_reps, actual_load, dss, true);
 
 assert(i_remain > 0)
@@ -40,10 +42,6 @@ save tmp_v
 
 test_pass = convergence_test(rand_load_final, actual_load, actual_voltages, idx, dss);
 
-
-
-%% Try and fix missing convergence
-
 % I found that when scaling down loads within a load zone, they do actually
 % reach zero at some stage and cannot recover. This leads to a discrepancy
 % in the demand profile and causes the solution not to converge (maybe).
@@ -57,22 +55,23 @@ test_pass = convergence_test(rand_load_final, actual_load, actual_voltages, idx,
 % By implementing the 2. scaling, zero loads (apart from ESMU) can be
 % re-included into the solving mechanism.
 
-while any(test_pass) == 0
+while any(test_pass == 0)
     if all(test_pass == 0)
         disp('Everything needs to be re-evaluated');
     elseif any(test_pass == 0)
-        disp('Some simulations need to be re-evaluated');
+        disp([num2str(sum(test_pass == 0)) ' simulations need to be re-evaluated']);
     else
         disp('Nothing needs to be re-evaluated');
     end
     
-    [rand_load, i_remain] = match_random_load({rand_load_final}, actual_load, dss, true);
+    [rand_load_corrected, i_remain] = match_random_load({rand_load_final(test_pass == 0, :)}, actual_load, dss, true);
 
     assert(i_remain > 0)
     clear i_remain
 
-    rand_load_final = match_random_voltage(rand_load, actual_voltages, idx, dss);
+    rand_load_final(test_pass == 0, :) = match_random_voltage(rand_load_corrected, actual_voltages, idx, dss);
     
     test_pass = convergence_test(rand_load_final, actual_load, actual_voltages, idx, dss);
 end
 
+save tmp_c
