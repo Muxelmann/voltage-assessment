@@ -55,23 +55,34 @@ test_pass = convergence_test(rand_load_final, actual_load, actual_voltages, idx,
 % By implementing the 2. scaling, zero loads (apart from ESMU) can be
 % re-included into the solving mechanism.
 
+reeval = 1;
 while any(test_pass == 0)
-    if all(test_pass == 0)
-        disp('Everything needs to be re-evaluated');
-    elseif any(test_pass == 0)
-        disp([num2str(sum(test_pass == 0)) ' simulations need to be re-evaluated']);
+    
+    if reeval == 0
+        action_str = 're-done';
     else
-        disp('Nothing needs to be re-evaluated');
+        action_str = 're-evaluate';
     end
     
-    [rand_load_corrected, i_remain] = match_random_load({rand_load_final(test_pass == 0, :)}, actual_load, dss, true);
+    if all(test_pass == 0)
+        disp(['Everything needs to be ' action_str]);
+    elseif any(test_pass == 0)
+        disp([num2str(sum(test_pass == 0)) ' simulations need to be ' action_str]);
+    end
 
+    if reeval == 0
+        [rand_load_corrected, i_remain] = match_random_load(sum(test_pass == 0), actual_load, dss, true);
+    else
+        [rand_load_corrected, i_remain] = match_random_load({rand_load_final(test_pass == 0, :)}, actual_load, dss, true);
+    end
     assert(i_remain > 0)
     clear i_remain
 
     rand_load_final(test_pass == 0, :) = match_random_voltage(rand_load_corrected, actual_voltages, idx, dss);
     
     test_pass = convergence_test(rand_load_final, actual_load, actual_voltages, idx, dss);
+    reeval = reeval + 1;
+    reeval = mod(reeval, 3);
 end
 
 save tmp_c
