@@ -127,8 +127,8 @@ classdef DSSClass < handle
             self.dss_circuit.Monitors.ResetAll;
         end
         
-        function t_elapsed = solve(self, use_load_shape)
-            tic;
+        function solve(self, use_load_shape)
+            
             if exist('use_load_shape', 'var') == 0
                 use_load_shape = false;
             end
@@ -136,7 +136,7 @@ classdef DSSClass < handle
             % a daily simulation
             
             sim_length = size(self.load_shapes, 1);
-            if use_load_shape
+            if use_load_shape && size(self.load_shapes, 1) > 1
                 % Use load shape solving (maybe faster?)
                 
                 % idx = self.dss_circuit.Loads.First;
@@ -177,7 +177,6 @@ classdef DSSClass < handle
                     self.dss_circuit.Monitors.SampleAll();
                 end
             end
-            t_elapsed = toc;
         end
 
         function [pq, vi] = get_monitor_data(self, include_name)
