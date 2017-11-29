@@ -40,8 +40,8 @@ classdef DSSClass < handle
                     'OpenDSS could not be initialised');
             end
             
-            self.dss_object.AllowForms = self.debug_enabled;
             self.dss_object = dss_object;
+            self.dss_object.AllowForms = self.debug_enabled;
             self.dss_text = dss_object.Text;
 
             self.disp('> Loading Circuit');
@@ -88,8 +88,8 @@ classdef DSSClass < handle
                 load_name = self.dss_circuit.Loads.Name;
                 self.dss_text.Command = ['new Monitor.load_mon_' load_name '_vi Element=Load.' load_name ' Terminal=1 Mode=0 VIpolar=yes'];
                 self.dss_text.Command = ['new Monitor.load_mon_' load_name '_pq Element=Load.' load_name ' Terminal=1 Mode=1 Ppolar=no'];
-                % self.dss_text.Command = ['new LoadShape.shape_' load_name ' Npts=0 Mult=()'];
-                % self.dss_circuit.Loads.Daily = ['shape_' load_name];
+                self.dss_text.Command = ['new LoadShape.shape_' load_name ' Npts=0 Mult=()'];
+                self.dss_circuit.Loads.Daily = ['shape_' load_name];
                 idx = self.dss_circuit.Loads.Next;
             end
             self.dss_circuit.Solution.SolveDirect();
@@ -127,38 +127,44 @@ classdef DSSClass < handle
             self.dss_circuit.Monitors.ResetAll;
         end
         
-        function converged = solve(self)
+        function converged = solve(self, use_load_shape)
         
+            if exist('use_load_shape', 'var') == 0
+                use_load_shape = false;
+            end
             % Based upon load shapes' lengths, do a single snapshot or run
             % a daily simulation
             
             sim_length = size(self.load_shapes, 1);
-            
-            self.dss_circuit.Solution.Mode = 0;
-            for t = 1:sim_length
-                self.dss_circuit.Solution.Hour = floor((t-1) * 60 / 3600);
-                self.dss_circuit.Solution.Seconds = mod((t-1) * 60, 3600);
+            if use_load_shape
+                % Use load shape solving (maybe faster?)
                 idx = self.dss_circuit.Loads.First;
                 while idx > 0
-                    self.dss_circuit.Loads.kW = self.load_shapes(t, idx);
+                    load_name = self.dss_circuit.Loads.Name;
+                    load_mult = self.load_shapes(:, idx);
+                    self.dss_text.Command = ['edit LoadShape.shape_' load_name ' Npts=' num2str(length(load_mult(:))) ' Mult=(' sprintf('%f,', load_mult(1:end-1)) sprintf('%f', load_mult(end)) ')'];
                     idx = self.dss_circuit.Loads.Next;
                 end
-                self.dss_circuit.Solution.Solve();
-                self.dss_circuit.Solution.Solve();
-                self.dss_circuit.Monitors.SampleAll();
-%             else
-%                 idx = self.dss_circuit.Loads.First;
-%                 while idx > 0
-%                     load_name = self.dss_circuit.Loads.Name;
-%                     load_mult = self.load_shapes(:, idx);
-%                     self.dss_text.Command = ['edit LoadShape.shape_' load_name ' Npts=' num2str(length(load_mult(:))) ' Mult=(' sprintf('%f,', load_mult(1:end-1)) sprintf('%f', load_mult(end)) ')'];
-%                     idx = self.dss_circuit.Loads.Next;
-%                 end
-%                 
-%                 self.dss_circuit.Solution.Mode = 2;
-%                 self.dss_circuit.Solution.Number = sim_length;
-%                 
-%                 self.dss_circuit.Solution.Solve;
+                
+                self.dss_circuit.Solution.Mode = 2;
+                self.dss_circuit.Solution.Number = sim_length;
+                
+                self.dss_circuit.Solution.Solve;
+            else
+                % Do not use load shape solving (maybe mor reliable?)
+                self.dss_circuit.Solution.Mode = 0;
+                for t = 1:sim_length
+                    self.dss_circuit.Solution.Hour = floor((t-1) * 60 / 3600);
+                    self.dss_circuit.Solution.Seconds = mod((t-1) * 60, 3600);
+                    idx = self.dss_circuit.Loads.First;
+                    while idx > 0
+                        self.dss_circuit.Loads.kW = self.load_shapes(t, idx);
+                        idx = self.dss_circuit.Loads.Next;
+                    end
+                    self.dss_circuit.Solution.Solve();
+                    self.dss_circuit.Solution.Solve();
+                    self.dss_circuit.Monitors.SampleAll();
+                end
             end
             converged = true;
 %             converged = self.dss_circuit.Solution.Converged;
