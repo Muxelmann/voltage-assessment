@@ -36,16 +36,19 @@ dss_data_dir = dir('../Daily_1min_100profiles/*.txt');
 data = data(:, 1:dss.get_load_count);
 data(:, end-2:end) = 0;
 
-t_elapsed = nan(size(data, 1), 2);
-for n = 1:size(data, 1)
+t_elapsed = nan(size(data, 1), 2, 100);
+for n = 1:size(t_elapsed, 1)
     
-    tic
-    solve_dss(dss, data(1:n, :), false);
-    t_elapsed(n, 1) = toc;
+    for m = 1:size(t_elapsed, 3)
+        tic
+        solve_dss(dss, data(1:n, :), false);
+        t_elapsed(n, 1, m) = toc;
+        
+        tic
+        solve_dss(dss, data(1:n, :), true);
+        t_elapsed(n, 2, m) = toc;
+    end
     
-    tic
-    solve_dss(dss, data(1:n, :), true);
-    t_elapsed(n, 2) = toc;
-    
-    disp([n t_elapsed(n, :)]);
+    disp([n mean(t_elapsed(n, :, :), 3) mean(t_elapsed(n, 1, :), 3)/mean(t_elapsed(n, 2, :), 3)]);
+    save('analysis.mat', 't_elapsed');
 end
