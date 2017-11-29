@@ -32,7 +32,7 @@ for p = 1:3
     rand_load{end}(:, load_phases == p) = rand_load{end}(:, load_phases == p) .* rand_load_scale(:, p);
 end
 
-i_remain = 100; % Stop after `i_max` iterations
+i_remain = 100; % Stop after `i_remain` iterations
 t_reps = (1:size(rand_load{end}, 1)) / 60;
 print_string = '';
 tic;
