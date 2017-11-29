@@ -34,7 +34,7 @@ save tmp_p
 %% Match random loads to voltages
 
 idx = dss.get_load_count() - [2 1 0]; % Voltages that should be matched
-rand_load_final = match_random_voltage(rand_load, actual_voltages, idx, dss);
+rand_load_final = match_random_voltage(rand_load, actual_voltages, idx, dss, true);
 
 save tmp_v
 
@@ -48,12 +48,12 @@ test_pass = convergence_test(rand_load_final, actual_load, actual_voltages, idx,
 % 
 % Consider using two scaling mechanisms for the random load profiles:
 % 1. proportional:  where the loads are scaled up and down based on their
-%                   relative contribution to the overall profile
-% 2. uniformly:     where the loads are scaled equally regardless of their
-%                   relative contribution to the overall profile
+%                   original contribution to the overall profile
+% 2. uniformly:     where the loads are linearly changed regardless of
+%                   their original contribution to the overall profile
 %
-% By implementing the 2. scaling, zero loads (apart from ESMU) can be
-% re-included into the solving mechanism.
+% By implementing the 2. scaling, zero loads (apart from ESMU) must be
+% re-included as a constraint into the solving mechanism.
 
 reeval = 1;
 while any(test_pass == 0)
