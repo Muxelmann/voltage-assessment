@@ -127,8 +127,8 @@ classdef DSSClass < handle
             self.dss_circuit.Monitors.ResetAll;
         end
         
-        function converged = solve(self, use_load_shape)
-        
+        function t_elapsed = solve(self, use_load_shape)
+            tic;
             if exist('use_load_shape', 'var') == 0
                 use_load_shape = false;
             end
@@ -138,13 +138,24 @@ classdef DSSClass < handle
             sim_length = size(self.load_shapes, 1);
             if use_load_shape
                 % Use load shape solving (maybe faster?)
-                idx = self.dss_circuit.Loads.First;
+                
+                % idx = self.dss_circuit.Loads.First;
+                % while idx > 0
+                %     load_name = self.dss_circuit.Loads.Name;
+                %     load_mult = self.load_shapes(:, idx);
+                %     self.dss_text.Command = ['edit LoadShape.shape_' load_name ' Npts=' num2str(length(load_mult(:))) ' Mult=(' sprintf('%f,', load_mult(1:end-1)) sprintf('%f', load_mult(end)) ')'];
+                %     idx = self.dss_circuit.Loads.Next;
+                % end
+                
+                idx = self.dss_circuit.LoadShapes.First;
+                feature('COM_SafeArraySingleDim', 1);
                 while idx > 0
-                    load_name = self.dss_circuit.Loads.Name;
                     load_mult = self.load_shapes(:, idx);
-                    self.dss_text.Command = ['edit LoadShape.shape_' load_name ' Npts=' num2str(length(load_mult(:))) ' Mult=(' sprintf('%f,', load_mult(1:end-1)) sprintf('%f', load_mult(end)) ')'];
-                    idx = self.dss_circuit.Loads.Next;
+                    self.dss_circuit.LoadShapes.Npts = length(load_mult);
+                    self.dss_circuit.LoadShapes.Pmult = load_mult;
+                    idx = self.dss_circuit.LoadShapes.Next;
                 end
+                feature('COM_SafeArraySingleDim', 0);
                 
                 self.dss_circuit.Solution.Mode = 2;
                 self.dss_circuit.Solution.Number = sim_length;
@@ -166,13 +177,7 @@ classdef DSSClass < handle
                     self.dss_circuit.Monitors.SampleAll();
                 end
             end
-            converged = true;
-%             converged = self.dss_circuit.Solution.Converged;
-%             if converged == 1
-%                 self.disp('> Solution converged');
-%             else
-%                 self.disp('> Solution did not converge');
-%             end
+            t_elapsed = toc;
         end
 
         function [pq, vi] = get_monitor_data(self, include_name)
