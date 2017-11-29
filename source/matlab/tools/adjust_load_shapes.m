@@ -1,6 +1,13 @@
 function [ loads_new ] = adjust_load_shapes( loads_scaling, loads_original, dss )
 %ADJUST_LOAD_SHAPES Assigns load proportion to upper and lower energy zone
 
+if size(loads_scaling, 1) ~= size(loads_original, 1)
+    assert(size(loads_original, 1) > 1, ...
+        'adjust_load_shapes:dimensions-not-found', ...
+        'cannot break up dimensions for load adjustment')
+    loads_scaling = reshape(loads_scaling(:), size(loads_original, 1), []);
+end
+
 if size(loads_scaling, 1) > 1 && size(loads_original, 1) > 1
     loads_new = arrayfun(@(x) adjust_load_shapes(loads_scaling(x, :), loads_original(x, :), dss), 1:size(loads_original, 1), 'uni', 0);
     loads_new = cell2mat(loads_new.');
