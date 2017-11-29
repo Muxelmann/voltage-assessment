@@ -9,5 +9,9 @@ cost = ...
     sum(abs(v_sim(:, idx) - actual_voltages(:, idx)), 2) + ...
     sum(abs(p_sim - actual_load), 2);
 
+if length(cost) > 1
+    cost = sum(cost(:));
+end
+
 end
 
