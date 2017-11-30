@@ -1,24 +1,24 @@
-% clear
-% clc
-% 
-% load tmp_withLS.mat
-% 
-% cmp = [];
-% cmp(1).load_voltages = load_voltages;
-% cmp(1).ss_power = ss_power;
-% cmp(1).t_elapsed = t_elapsed;
-% 
-% load tmp_withoutLS.mat
-% 
-% cmp(2).load_voltages = load_voltages;
-% cmp(2).ss_power = ss_power;
-% cmp(2).t_elapsed = t_elapsed;
-% 
-% figure(1)
-% plot(cmp(1).load_voltages(:, 2))
-% hold on
-% plot(cmp(2).load_voltages(:, 2))
-% hold off
+clear
+clc
+
+load tmp_withLS.mat
+
+cmp = [];
+cmp(1).load_voltages = load_voltages;
+cmp(1).ss_power = ss_power;
+cmp(1).t_elapsed = t_elapsed;
+
+load tmp_withoutLS.mat
+
+cmp(2).load_voltages = load_voltages;
+cmp(2).ss_power = ss_power;
+cmp(2).t_elapsed = t_elapsed;
+
+figure(1)
+plot(cmp(1).load_voltages(:, 2))
+hold on
+plot(cmp(2).load_voltages(:, 2))
+hold off
 
 %% This part analyses the simulation time sensitivity
 close all
@@ -36,14 +36,14 @@ dss_data_dir = dir('../Daily_1min_100profiles/*.txt');
 data = data(:, 1:dss.get_load_count);
 data(:, end-2:end) = 0;
 
-% if exist('analysis.mat', 'file')
-%     load analysis.mat
-%     t_start = mean(sum(all(isnan(t_elapsed) == 0, 3)))+1;
-% else
+if exist('analysis.mat', 'file')
+    load analysis.mat
+    t_start = mean(sum(all(isnan(t_elapsed) == 0, 3)))+1;
+else
     t_elapsed = nan(size(data, 1), 2, 100);
     sim_error = nan(size(data, 1), 2, 100);
     t_start = 1;
-% end
+end
 for n = t_start:size(t_elapsed, 1)
     
     for m = 1:size(t_elapsed, 3)
