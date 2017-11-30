@@ -9,9 +9,10 @@ classdef DSSClass < handle
         dss_circuit = []
 
         load_shapes = []
+        solve_mode = 0
 
         original_bus_distances = []
-        load_location = [];
+        load_location = []
     end
 
     methods
@@ -127,11 +128,23 @@ classdef DSSClass < handle
             self.dss_circuit.Monitors.ResetAll;
         end
         
-        function solve(self, use_load_shape)
+        function set_solve_mode(self, solve_mode)
+            assert(solve_mode >= 0 && solve_mode <= 17);
+            self.solve_mode = solve_mode;
             
-            if exist('use_load_shape', 'var') == 0
-                use_load_shape = false;
+            if self.solve_mode > 0
+               idx = self.dss_circuit.Loads.First;
+               while idx > 0
+                   self.dss_circuit.Loads.kW = 1.0;
+                   idx = self.dss_circuit.Loads.Next;
+               end
             end
+        end
+        
+        function solve(self)
+            
+            use_load_shape = self.solve_mode > 0;
+            
             % Based upon load shapes' lengths, do a single snapshot or run
             % a daily simulation
             
@@ -147,23 +160,29 @@ classdef DSSClass < handle
                 %     idx = self.dss_circuit.Loads.Next;
                 % end
                 
+                self.dss_circuit.Solution.Mode = self.solve_mode;
+                self.dss_circuit.Solution.Number = sim_length;
+                
                 idx = self.dss_circuit.LoadShapes.First;
+                idx_offset = 0;
                 feature('COM_SafeArraySingleDim', 1);
                 while idx > 0
-                    load_mult = self.load_shapes(:, idx);
+                    load_mult = self.load_shapes(:, idx - idx_offset);
                     self.dss_circuit.LoadShapes.Npts = length(load_mult);
                     self.dss_circuit.LoadShapes.Pmult = load_mult;
+                    
+                    if strcmpi('default', self.dss_circuit.LoadShapes.Name)
+                        idx_offset = idx_offset + 1;
+                    end
+                    
                     idx = self.dss_circuit.LoadShapes.Next;
                 end
                 feature('COM_SafeArraySingleDim', 0);
                 
-                self.dss_circuit.Solution.Mode = 16;
-                self.dss_circuit.Solution.Number = sim_length;
-                
                 self.dss_circuit.Solution.Solve;
             else
                 % Do not use load shape solving (maybe mor reliable?)
-                self.dss_circuit.Solution.Mode = 0;
+                self.dss_circuit.Solution.Mode = self.solve_mode;
                 for t = 1:sim_length
                     self.dss_circuit.Solution.Hour = floor((t-1) * 60 / 3600);
                     self.dss_circuit.Solution.Seconds = mod((t-1) * 60, 3600);

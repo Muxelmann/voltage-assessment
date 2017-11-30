@@ -30,32 +30,31 @@ addpath('tools/');
 dss_master_path = dir('../LVTestCase/Master.dss');
 dss_data_dir = dir('../Daily_1min_100profiles/*.txt');
 
-[dss, data] = setup_dss(dss_master_path, '318', dss_data_dir);
-
-% Remove last three elements in data
-data = data(:, 1:dss.get_load_count);
-data(:, end-2:end) = 0;
+[dss] = setup_dss(dss_master_path);
+sim_len = 1000;
 
 if exist('analysis.mat', 'file')
     load analysis.mat
     t_start = mean(sum(all(isnan(t_elapsed) == 0, 3)))+1;
 else
-    t_elapsed = nan(size(data, 1), 2, 100);
-    sim_error = nan(size(data, 1), 2, 100);
-    t_start = 1;
+    t_elapsed = nan(sim_len, 2, 100);
+    sim_error = nan(sim_len, 2, 100);
+    t_start = 2;
 end
 for n = t_start:size(t_elapsed, 1)
     
     for m = 1:size(t_elapsed, 3)
+        data = 5 * rand(n, dss.dss_circuit.Loads.Count);
+        
         ss_power = {};
         load_voltages = {};
         
         tic
-        [ ss_power{1}, load_voltages{1} ] = solve_dss(dss, data(1:n, :), false);
+        [ ss_power{1}, load_voltages{1} ] = solve_dss(dss, data, 0);
         t_elapsed(n, 1, m) = toc;
         
         tic
-        [ ss_power{2}, load_voltages{2} ] = solve_dss(dss, data(1:n, :), true);
+        [ ss_power{2}, load_voltages{2} ] = solve_dss(dss, data, 1);
         t_elapsed(n, 2, m) = toc;
         
         sim_error(n, 1, m) = mean(abs(ss_power{1}(:) - ss_power{2}(:)));
