@@ -157,7 +157,7 @@ classdef DSSClass < handle
                 end
                 feature('COM_SafeArraySingleDim', 0);
                 
-                self.dss_circuit.Solution.Mode = 2;
+                self.dss_circuit.Solution.Mode = 16;
                 self.dss_circuit.Solution.Number = sim_length;
                 
                 self.dss_circuit.Solution.Solve;
@@ -173,8 +173,19 @@ classdef DSSClass < handle
                         idx = self.dss_circuit.Loads.Next;
                     end
                     self.dss_circuit.Solution.Solve();
-                    self.dss_circuit.Solution.Solve();
                     self.dss_circuit.Monitors.SampleAll();
+                end
+            end
+        end
+        
+        function modes = get_solve_modes(self)
+            modes = {};
+            for m = 0:17
+                self.dss_circuit.Solution.Mode = m;
+                if isempty(modes)
+                    modes = {m, self.dss_circuit.Solution.ModeID};
+                else
+                    modes(end+1, :) = {m, self.dss_circuit.Solution.ModeID};
                 end
             end
         end
