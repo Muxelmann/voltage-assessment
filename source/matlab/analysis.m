@@ -39,7 +39,7 @@ if exist('analysis.mat', 'file')
 else
     t_elapsed = nan(sim_len, 2, 100);
     sim_error = nan(sim_len, 2, 100);
-    t_start = 2;
+    t_start = 1;
 end
 for n = t_start:size(t_elapsed, 1)
     

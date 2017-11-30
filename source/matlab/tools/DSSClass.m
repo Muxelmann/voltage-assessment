@@ -182,7 +182,7 @@ classdef DSSClass < handle
                 self.dss_circuit.Solution.Solve;
             else
                 % Do not use load shape solving (maybe mor reliable?)
-                self.dss_circuit.Solution.Mode = self.solve_mode;
+                self.dss_circuit.Solution.Mode = 0; % always use 0 for snap
                 for t = 1:sim_length
                     self.dss_circuit.Solution.Hour = floor((t-1) * 60 / 3600);
                     self.dss_circuit.Solution.Seconds = mod((t-1) * 60, 3600);
